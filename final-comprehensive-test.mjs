@@ -4,7 +4,7 @@ import net from 'net';
 import fs from 'fs';
 import path from 'path';
 
-const APP_PORT = 3020;
+const APP_PORT = Number(process.env.TEST_APP_PORT || 30000 + Math.floor(Math.random() * 10000));
 const MOCK_SUB_PORT = 10086; // Changed port
 const MOCK_NODE_PORTS = [10001, 10002];
 
@@ -62,16 +62,40 @@ async function startInfrastructure() {
     }
 
     console.log('🚀 Starting Application Backend...');
-    const appProcess = spawn('node', ['server/index.js'], {
+    const appProcess = spawn(process.execPath, ['server/index.js'], {
+        cwd: process.cwd(),
         env: { ...process.env, PORT: APP_PORT.toString(), NODE_ENV: 'test' },
         stdio: 'pipe'
     });
 
     appProcess.stdout.pipe(process.stdout);
     appProcess.stderr.on('data', d => console.error('   [Backend Error]', d.toString()));
+    appProcess.on('exit', (code, signal) => {
+        if (code !== null || signal) {
+            console.error(`   [Backend Exit] code=${code ?? 'null'} signal=${signal ?? 'null'}`);
+        }
+    });
 
-    await new Promise(r => setTimeout(r, 5000));
+    await waitForBackend(15000);
     return appProcess;
+}
+
+async function waitForBackend(timeoutMs) {
+    const deadline = Date.now() + timeoutMs;
+    let lastError;
+
+    while (Date.now() < deadline) {
+        try {
+            const res = await req('GET', '/healthz');
+            if (res.status === 200) return;
+            lastError = new Error(`Health status ${res.status}`);
+        } catch (error) {
+            lastError = error;
+        }
+        await new Promise(r => setTimeout(r, 300));
+    }
+
+    throw new Error(`Backend did not become ready on port ${APP_PORT}: ${lastError?.message || 'timeout'}`);
 }
 
 // ==========================================
@@ -174,7 +198,7 @@ async function runTests() {
     });
 
     await check('节点健康检测 (Health Check)', async () => {
-        const res = await req('POST', '/api/health/check', { url: healthUrl });
+        const res = await req('POST', '/api/health/check', { url: healthUrl, exportTarget: 'clash' });
         const json = JSON.parse(res.body);
         if (res.status !== 200) throw new Error(`Status ${res.status}`);
 
@@ -183,6 +207,8 @@ async function runTests() {
 
         if (!onlineNode || onlineNode.status !== 'online') throw new Error('Expected SS node to be online');
         if (!offlineNode || offlineNode.status !== 'offline') throw new Error('Expected Offline node to be offline');
+        if (!json.exportConfig?.includes('Mock-SS-Node')) throw new Error('Missing online node export');
+        if (json.exportConfig?.includes('Mock-Offline-Node')) throw new Error('Offline node leaked into export');
     });
 }
 

@@ -1,78 +1,58 @@
-﻿# LaoWang Sub-converter
+# 老王订阅转换器
 
-<div align="center">
+一个面向中文用户的订阅转换与节点整理工具。项目提供 Web 控制台和后端 API，支持多协议解析、多客户端输出、订阅合并、节点健康检测、二维码导入、短链接，以及 Docker/NAS 私有化部署。
 
-![Logo](https://img.shields.io/badge/LaoWang-Sub--converter-blue?style=for-the-badge)
-![License](https://img.shields.io/github/license/tony-wang1990/laowang-sub-converter?style=for-the-badge)
-![Node](https://img.shields.io/badge/Node.js-18+-green?style=for-the-badge)
+## 核心能力
 
-**强大的订阅转换工具 - 支持多种协议和客户端**
+- 多协议解析：SS、SSR、VMess、VLESS、VLESS Reality、Trojan、Hysteria、Hysteria2、TUIC、Snell、HTTP、SOCKS5、Clash YAML、sing-box JSON。
+- 多客户端输出：Clash、Clash Meta、Mihomo、Stash、Clash Verge、FlClash、Surge、Surfboard、Loon、Quantumult X、Shadowrocket、V2RayN、V2RayNG、V2RayU、NekoBox、Hiddify、sing-box、SFA、SFI。
+- 订阅合并：批量拉取多个订阅，合并、去重、预览节点，并导出目标客户端配置。
+- 健康检测：从服务器侧检测节点连通性和延迟，过滤离线节点，导出在线节点配置。
+- 二维码导入：转换后的订阅地址可生成二维码；V2RayN、V2RayNG、V2RayU、Shadowrocket 等分享链接输出还支持单节点二维码。
+- 短链接：把复杂转换链接保存为短码，支持自定义短码、访问统计和删除。
+- 私有化部署：单 Docker 镜像同时包含前端页面、后端 API 和持久化数据目录，适合 NAS、VPS、软路由环境。
 
-[English](./README_EN.md) | 简体中文
+## 推荐部署
 
-</div>
+### Docker / NAS
 
----
+```bash
+docker run -d \
+  --name laowang-sub-converter \
+  -p 3000:3000 \
+  -v ./data:/app/data \
+  --restart unless-stopped \
+  ghcr.io/tony-wang1990/laowang-sub-converter:latest
+```
 
-## 界面预览
+访问：
 
-<div align="center">
+```text
+http://NAS_IP:3000
+```
 
-<a href="https://laowang-sub-conv.vercel.app/">
-  <img src="https://img.shields.io/badge/%E7%82%B9%E5%87%BB%E4%BD%93%E9%AA%8C-laowang--sub--conv.vercel.app-38b2ac?style=for-the-badge" alt="Demo">
-</a>
+短链接数据会保存在宿主机的 `./data` 目录中。
 
-<br><br>
+### Docker Compose
 
-| 首页 | 转换器 |
-|:---:|:---:|
-| ![首页](./docs/screenshots/home.png) | ![转换器](./docs/screenshots/converter.png) |
+```bash
+git clone https://github.com/tony-wang1990/laowang-sub-converter.git
+cd laowang-sub-converter
+docker compose up -d
+```
 
-</div>
+### Docker Hub
 
----
+仓库 Actions 默认发布 GHCR 镜像。如果要同步发布 Docker Hub，在 GitHub 仓库 Secrets 中添加：
 
-## 功能特性
+- `DOCKERHUB_USERNAME`
+- `DOCKERHUB_TOKEN`
 
-- **多协议支持** - SS、SSR、VMess、VLESS（含 Reality）、Trojan、Hysteria、Hysteria2、TUIC
-- **多客户端支持** - Clash、Surge、Quantumult X、Shadowrocket、Loon、V2RayN、V2RayNG、NekoBox、sing-box 等
-- **节点健康检测** - 🩺 实时检测节点连通性与延迟，自动筛选高可用节点
-- **订阅合并** - 📎 支持多订阅合并、智能去重、重命名与高级过滤
-- **规则分流** - 📋 内置 5 套精选分流规则模板（标准/游戏/流媒体等），一键应用
-- **短链接服务** - 生成短链接便于分享，支持访问统计
-- **多主题切换** - 8 种精美主题随心切换
-- **多语言支持** - 简体中文、English
-- **多种部署方式** - Docker、Cloudflare、Vercel、Netlify
-- **备用 API** - 支持多个后端 API 自动切换
+配置后会自动推送：
 
----
-
-## 部署指南
-
-### 推荐部署 (完整功能)
->
-> 包含后端 API 和持久化存储，支持短链接等所有功能。
-
-| 平台 | 部署按钮/命令 |
-| :--- | :--- |
-| **Docker (VPS)** | `docker-compose up -d` |
-| **Zeabur** | [![Deploy on Zeabur](https://zeabur.com/button.svg)](https://zeabur.com/new) |
-| **Railway** | [![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/new/template?template=https%3A%2F%2Fgithub.com%2Ftony-wang1990%2Flaowang-sub-converter) |
-| **Render** | [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/tony-wang1990/laowang-sub-converter) |
-| **Fly.io** | `fly launch` |
-| **Koyeb** | [![Deploy to Koyeb](https://www.koyeb.com/static/images/deploy/button.svg)](https://app.koyeb.com/deploy?type=git&repository=tony-wang1990/laowang-sub-converter) |
-
-### 仅前端/演示 (功能受限)
->
-> 主要用于展示前端界面，**短链接等需要存储的功能无法长期使用**（因为没有持久化数据库）。
-
-| 平台 | 部署按钮 |
-| :--- | :--- |
-| **Vercel** | [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/tony-wang1990/laowang-sub-converter) |
-| **Netlify** | [![Deploy to Netlify](https://www.netlify.com/img/deploy/button.svg)](https://app.netlify.com/start/deploy?repository=https://github.com/tony-wang1990/laowang-sub-converter) |
-| **Cloudflare Pages** | [![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/tony-wang1990/laowang-sub-converter) |
-
----
+```text
+<dockerhub-user>/laowang-sub-converter:latest
+```
 
 ## 本地开发
 
@@ -83,62 +63,183 @@ npm install
 npm run dev
 ```
 
-### Docker 容器运行 (测试用)
+前端开发服务默认由 Vite 启动。后端 API 可单独启动：
 
 ```bash
-docker run -d -p 3000:3000 --name sub-converter ghcr.io/tony-wang1990/laowang-sub-converter:latest
+npm run server
 ```
 
----
+生产构建：
 
-## 支持功能一览
+```bash
+npm run build
+npm run server
+```
 
-| 类型 | 项目 | 平台/说明 | 状态 |
-|:---|:---|:---|:---:|
-| **协议** | Shadowsocks (SS) | 标准支持 |  |
-| | ShadowsocksR (SSR) | 标准支持 |  |
-| | VMess | 标准支持 |  |
-| | VLESS | 标准支持 |  |
-| | VLESS + Reality | Vision/Reality |  |
-| | Trojan | 标准支持 |  |
-| | Hysteria | v1 |  |
-| | Hysteria2 | v2 |  |
-| | TUIC | v5 |  |
-| **客户端** | Clash | 全平台 |  |
-| | Clash Meta | 全平台 |  |
-| | Surge | iOS/macOS |  |
-| | Quantumult X | iOS |  |
-| | Shadowrocket | iOS |  |
-| | Loon | iOS |  |
-| | V2RayN | Windows |  |
-| | V2RayNG | Android |  |
-| | NekoBox | Android |  |
-| | Surfboard | Android |  |
-| | Stash | iOS/macOS |  |
-| | sing-box | 全平台 |  |
+## 页面说明
 
----
+| 页面 | 功能 |
+| --- | --- |
+| 控制台 | 项目入口、协议支持概览、常用功能入口 |
+| 订阅转换 | 输入订阅地址，选择客户端，生成转换订阅链接、下载配置或二维码 |
+| 订阅合并 | 多订阅合并、去重、预览、导出 |
+| 节点检测 | 检测节点在线状态和延迟，导出在线节点 |
+| 短链接 | 创建、复制、统计、删除短链接 |
+| 部署说明 | Docker、API、兼容性和发布状态说明 |
 
-## 备用 API
+## API 接口
 
-当主服务不可用时，系统会自动切换到备用 API：
+### 订阅转换
 
-- 本地服务
-- api.v1.mk
-- sub.xeton.dev
-- api.dler.io
+```http
+GET /api/convert?target=clashmeta&url=https%3A%2F%2Fexample.com%2Fsub
+```
 
----
+常用参数：
+
+| 参数 | 说明 |
+| --- | --- |
+| `target` | 目标客户端，例如 `clashmeta`、`mihomo`、`singbox`、`surge`、`v2rayn` |
+| `url` | 订阅地址，需要 URL 编码 |
+| `emoji` | 是否添加地区标识，`1` 或 `0` |
+| `udp` | 是否启用 UDP，`1` 或 `0` |
+| `sort` | 是否排序，`1` 或 `0` |
+| `include` | 仅保留包含关键词的节点 |
+| `exclude` | 排除包含关键词的节点 |
+| `rename` | 重命名规则，例如 `old->new` |
+| `rulePreset` | 分流模板：`standard`、`developer`、`gaming`、`streaming` |
+
+### 订阅合并
+
+```http
+POST /api/merge
+Content-Type: application/json
+
+{
+  "urls": [
+    "https://example.com/sub1",
+    "https://example.com/sub2"
+  ],
+  "target": "clashmeta",
+  "dedupe": true,
+  "emoji": true,
+  "sort": false
+}
+```
+
+预览接口：
+
+```http
+POST /api/merge/preview
+```
+
+### 节点健康检测
+
+```http
+POST /api/health/check
+Content-Type: application/json
+
+{
+  "url": "https://example.com/sub",
+  "timeout": 5000,
+  "concurrent": 10,
+  "exportTarget": "clashmeta"
+}
+```
+
+也可以传入原始节点内容：
+
+```json
+{
+  "content": "ss://...\nvmess://...",
+  "exportTarget": "v2rayn"
+}
+```
+
+返回内容包含节点状态、统计信息和 `exportConfig` 在线节点导出结果。
+
+### 短链接
+
+```http
+POST /api/shortlink
+Content-Type: application/json
+
+{
+  "url": "https://example.com/api/convert?target=clashmeta&url=...",
+  "code": "my-profile"
+}
+```
+
+列表：
+
+```http
+GET /api/shortlink/list
+```
+
+删除：
+
+```http
+DELETE /api/shortlink/:id
+```
+
+服务探针：
+
+```http
+GET /healthz
+```
+
+## 兼容性
+
+### 输入协议
+
+| 协议 | 支持情况 |
+| --- | --- |
+| SS / SSR | 支持常见 URI 格式 |
+| VMess | 支持 TCP、WS、TLS 等常见参数 |
+| VLESS | 支持 TLS、Reality、WS 等常见参数 |
+| Trojan | 支持 TLS 和常见传输参数 |
+| Hysteria / Hysteria2 | 支持主流分享链接格式 |
+| TUIC | 支持常见 v5 链接 |
+| Snell | 支持常见链接参数 |
+| HTTP / SOCKS5 | 支持代理节点转换 |
+| Clash YAML | 可解析 Clash/Mihomo 配置中的节点 |
+| sing-box JSON | 可解析 sing-box outbound 节点 |
+
+### 输出客户端
+
+| 客户端 | 输出格式 |
+| --- | --- |
+| Clash / Clash Meta / Mihomo / Stash / Clash Verge / FlClash | YAML |
+| Surge / Surfboard / Loon | conf / 规则文本 |
+| Quantumult X | 节点配置文本 |
+| Shadowrocket / V2RayN / V2RayNG / V2RayU | Base64 分享链接订阅 |
+| sing-box / NekoBox / Hiddify / SFA / SFI / SFM | JSON |
+
+## 测试
+
+```bash
+npm run build
+node test-all-protocols.js
+node final-comprehensive-test.mjs
+npm audit --audit-level=moderate
+```
+
+当前测试覆盖协议解析、主要客户端导出、规则模板、订阅合并、去重、健康检测和在线节点导出。
 
 ## 技术栈
 
-- **前端**: Vue 3 + Vite
-- **后端**: Node.js + Express
-- **样式**: CSS Variables + Glassmorphism
-- **部署**: Docker, Vercel, Netlify, Cloudflare
+- 前端：Vue 3、Vite、lucide-vue-next
+- 后端：Node.js、Express
+- 配置解析：js-yaml
+- 二维码：qrcode
+- 部署：Docker、Docker Compose、GitHub Actions、GHCR、可选 Docker Hub
 
----
+## 注意事项
 
-## 开源协议
+- 该项目仅用于订阅格式转换、节点整理和自用部署，请遵守所在地法律法规。
+- 健康检测结果取决于部署服务器所在网络环境，不等同于所有客户端所在地的实际可用性。
+- 第三方转换 API 只作为备用选项；私有化部署建议优先使用本地服务。
+
+## License
 
 MIT License

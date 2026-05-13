@@ -1,34 +1,34 @@
-# Build stage
-FROM node:20-alpine AS builder
+# syntax=docker/dockerfile:1.7
 
+FROM node:20-alpine AS deps
 WORKDIR /app
-
-# Copy package files
 COPY package*.json ./
-
-# Install dependencies
 RUN npm ci
 
-# Copy source code
+FROM deps AS builder
+WORKDIR /app
 COPY . .
-
-# Build the app
 RUN npm run build
 
-# Production stage
-FROM nginx:alpine
+FROM node:20-alpine AS runner
+WORKDIR /app
 
-# Copy custom nginx config
-COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
+ENV NODE_ENV=production
+ENV PORT=3000
+ENV DATA_DIR=/app/data
 
-# Copy built files
-COPY --from=builder /app/dist /usr/share/nginx/html
+COPY package*.json ./
+RUN npm ci --omit=dev && npm cache clean --force
 
-# Expose port
-EXPOSE 80
+COPY --from=builder /app/dist ./dist
+COPY server ./server
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD wget --quiet --tries=1 --spider http://localhost/ || exit 1
+RUN mkdir -p /app/data && addgroup -S app && adduser -S app -G app && chown -R app:app /app
+USER app
 
-CMD ["nginx", "-g", "daemon off;"]
+EXPOSE 3000
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD wget --quiet --tries=1 --spider http://127.0.0.1:3000/health || exit 1
+
+CMD ["node", "server/index.js"]

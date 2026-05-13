@@ -4,16 +4,28 @@ import { convertToTarget } from '../server/utils/converters.js'
 const SUPPORTED_CLIENTS = {
     clash: 'clash',
     clashmeta: 'clashmeta',
+    mihomo: 'mihomo',
+    clashverge: 'clashverge',
+    'clash-verge': 'clash-verge',
+    clashnyanpasu: 'clashnyanpasu',
+    'clash-nyanpasu': 'clash-nyanpasu',
+    flclash: 'flclash',
     surge: 'surge',
     quantumultx: 'quantumultx',
     shadowrocket: 'shadowrocket',
     loon: 'loon',
     v2rayn: 'v2rayn',
     v2rayng: 'v2rayng',
+    v2rayu: 'v2rayu',
     nekobox: 'nekobox',
+    hiddify: 'hiddify',
+    sfa: 'sfa',
+    sfi: 'sfi',
+    sfm: 'sfm',
     surfboard: 'surfboard',
     stash: 'stash',
-    singbox: 'singbox'
+    singbox: 'singbox',
+    'sing-box': 'sing-box'
 }
 
 export default async function handler(req, res) {
@@ -36,7 +48,8 @@ export default async function handler(req, res) {
             sort = '0',
             include = '',
             exclude = '',
-            rename = ''
+            rename = '',
+            rulePreset = ''
         } = req.query
 
         // 参数验证
@@ -72,14 +85,14 @@ export default async function handler(req, res) {
 
         // 应用过滤规则
         if (include) {
-            const keywords = include.split('|')
+            const keywords = include.split('|').map(kw => kw.trim()).filter(Boolean)
             nodes = nodes.filter(node =>
                 keywords.some(kw => node.name.includes(kw))
             )
         }
 
         if (exclude) {
-            const keywords = exclude.split('|')
+            const keywords = exclude.split('|').map(kw => kw.trim()).filter(Boolean)
             nodes = nodes.filter(node =>
                 !keywords.some(kw => node.name.includes(kw))
             )
@@ -105,16 +118,21 @@ export default async function handler(req, res) {
                 let newName = node.name
                 for (const rule of rules) {
                     const [from, to] = rule.split('->')
-                    newName = newName.replace(new RegExp(from.trim(), 'g'), to.trim())
+                    newName = newName.split(from.trim()).join((to || '').trim())
                 }
                 return { ...node, name: newName }
             })
         }
 
+        if (nodes.length === 0) {
+            return res.status(422).json({ error: 'No supported nodes found in subscription' })
+        }
+
         // 转换为目标格式
         const output = convertToTarget(nodes, target, {
             udp: udp === '1',
-            skipCert: scert === '1'
+            skipCert: scert === '1',
+            rulePreset
         })
 
         // 设置响应头
@@ -129,14 +147,26 @@ export default async function handler(req, res) {
             v2rayng: 'text/plain',
             surfboard: 'text/plain',
             stash: 'text/yaml',
-            singbox: 'application/json'
+            mihomo: 'text/yaml',
+            clashverge: 'text/yaml',
+            'clash-verge': 'text/yaml',
+            clashnyanpasu: 'text/yaml',
+            'clash-nyanpasu': 'text/yaml',
+            flclash: 'text/yaml',
+            singbox: 'application/json',
+            'sing-box': 'application/json',
+            nekobox: 'application/json',
+            hiddify: 'application/json',
+            sfa: 'application/json',
+            sfi: 'application/json',
+            sfm: 'application/json'
         }
 
         // 确定文件扩展名
         let extension = 'txt'
-        if (target === 'singbox') {
+        if (['singbox', 'sing-box', 'nekobox', 'hiddify', 'sfa', 'sfi', 'sfm'].includes(target)) {
             extension = 'json'
-        } else if (['clash', 'clashmeta', 'stash'].includes(target)) {
+        } else if (['clash', 'clashmeta', 'mihomo', 'stash', 'clashverge', 'clash-verge', 'clashnyanpasu', 'clash-nyanpasu', 'flclash'].includes(target)) {
             extension = 'yaml'
         } else if (['surge', 'loon', 'surfboard'].includes(target)) {
             extension = 'conf'

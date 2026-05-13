@@ -11,7 +11,7 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
 // 数据存储路径
-const DATA_FILE = path.join(__dirname, '../data/shortlinks.json')
+const DATA_FILE = path.join(process.env.DATA_DIR || path.join(__dirname, '../../data'), 'shortlinks.json')
 
 // 确保数据目录存在
 function ensureDataDir() {
@@ -54,7 +54,7 @@ function generateShortCode(length = 6) {
 // 创建短链接
 router.post('/', (req, res) => {
     try {
-        const { url } = req.body
+        const { url, code } = req.body
 
         if (!url) {
             return res.status(400).json({ error: 'URL is required' })
@@ -83,11 +83,18 @@ router.post('/', (req, res) => {
             }
         }
 
-        // 生成新短码
-        let shortCode
-        do {
-            shortCode = generateShortCode()
-        } while (data.links[shortCode])
+        let shortCode = code ? String(code).trim() : ''
+        if (shortCode && !/^[a-zA-Z0-9_-]{3,32}$/.test(shortCode)) {
+            return res.status(400).json({ error: 'Custom code must be 3-32 letters, numbers, underscores, or hyphens' })
+        }
+        if (shortCode && data.links[shortCode]) {
+            return res.status(409).json({ error: 'Custom code already exists' })
+        }
+        if (!shortCode) {
+            do {
+                shortCode = generateShortCode()
+            } while (data.links[shortCode])
+        }
 
         // 存储短链接
         data.links[shortCode] = {

@@ -1,616 +1,110 @@
-// Netlify Function for subscription conversion
-// This is an adaptation of server/routes/convert.js for Netlify Functions
+const SUPPORTED_CLIENTS = new Set([
+    'clash', 'clashmeta', 'mihomo', 'stash', 'clashverge', 'clash-verge',
+    'clashnyanpasu', 'clash-nyanpasu', 'flclash', 'surge', 'surfboard',
+    'quantumultx', 'shadowrocket', 'loon', 'v2rayn', 'v2rayng', 'v2rayu',
+    'singbox', 'sing-box', 'nekobox', 'hiddify', 'sfa', 'sfi', 'sfm'
+])
 
-const SUPPORTED_CLIENTS = {
-    clash: 'clash',
-    clashmeta: 'clashmeta',
-    surge: 'surge',
-    quantumultx: 'quantumultx',
-    shadowrocket: 'shadowrocket',
-    loon: 'loon',
-    v2rayn: 'v2rayn',
-    v2rayng: 'v2rayng',
-    surfboard: 'surfboard',
-    stash: 'stash',
-    singbox: 'singbox'
+const headers = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type'
 }
 
-exports.handler = async (event, context) => {
-    // Enable CORS
-    const headers = {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type'
-    }
-
+exports.handler = async (event) => {
     if (event.httpMethod === 'OPTIONS') {
         return { statusCode: 200, headers, body: '' }
     }
 
     try {
+        const { parseSubscription, addEmoji } = await import('../../server/utils/parsers.js')
+        const { convertToTarget } = await import('../../server/utils/converters.js')
         const params = event.queryStringParameters || {}
-        const {
-            target,
-            url,
-            emoji = '1',
-            udp = '1',
-            scert = '0',
-            sort = '0',
-            include = '',
-            exclude = '',
-            rename = ''
-        } = params
+        const target = params.target
+        const url = params.url
 
-        // 参数验证
-        if (!target || !SUPPORTED_CLIENTS[target]) {
-            return {
-                statusCode: 400,
-                headers: { ...headers, 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    error: 'Invalid target client',
-                    supported: Object.keys(SUPPORTED_CLIENTS)
-                })
-            }
-        }
-
-        if (!url) {
-            return {
-                statusCode: 400,
-                headers: { ...headers, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ error: 'Subscription URL is required' })
-            }
-        }
-
-        // 解码订阅链接
-        const subscriptionUrl = decodeURIComponent(url)
-
-        // 获取原始订阅内容
-        const response = await fetch(subscriptionUrl, {
-            headers: {
-                'User-Agent': 'LaoWang-Sub-Converter/1.0'
-            }
-        })
-
-        if (!response.ok) {
-            return {
-                statusCode: 502,
-                headers: { ...headers, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ error: 'Failed to fetch subscription' })
-            }
-        }
-
-        const rawContent = await response.text()
-
-        // 解析订阅内容
-        let nodes = parseSubscription(rawContent)
-
-        // 应用过滤规则
-        if (include) {
-            const keywords = include.split('|')
-            nodes = nodes.filter(node =>
-                keywords.some(kw => node.name.includes(kw))
-            )
-        }
-
-        if (exclude) {
-            const keywords = exclude.split('|')
-            nodes = nodes.filter(node =>
-                !keywords.some(kw => node.name.includes(kw))
-            )
-        }
-
-        // 排序
-        if (sort === '1') {
-            nodes.sort((a, b) => a.name.localeCompare(b.name))
-        }
-
-        // 添加 Emoji
-        if (emoji === '1') {
-            nodes = nodes.map(node => ({
-                ...node,
-                name: addEmoji(node.name)
-            }))
-        }
-
-        // 重命�?
-        if (rename) {
-            const rules = rename.split('\n').filter(r => r.includes('->'))
-            nodes = nodes.map(node => {
-                let newName = node.name
-                for (const rule of rules) {
-                    const [from, to] = rule.split('->')
-                    newName = newName.replace(new RegExp(from.trim(), 'g'), to.trim())
-                }
-                return { ...node, name: newName }
+        if (!target || !SUPPORTED_CLIENTS.has(target)) {
+            return json(400, {
+                error: 'Invalid target client',
+                supported: [...SUPPORTED_CLIENTS]
             })
         }
+        if (!url) return json(400, { error: 'Subscription URL is required' })
 
-        // 转换为目标格�?
-        const output = convertToTarget(nodes, target, {
-            udp: udp === '1',
-            skipCert: scert === '1'
+        const response = await fetch(decodeURIComponent(url), {
+            headers: { 'User-Agent': 'LaoWang-Sub-Converter/1.0' }
         })
+        if (!response.ok) return json(502, { error: 'Failed to fetch subscription' })
 
-        // 设置响应�?
-        const contentTypes = {
-            clash: 'text/yaml',
-            clashmeta: 'text/yaml',
-            surge: 'text/plain',
-            quantumultx: 'text/plain',
-            shadowrocket: 'text/plain',
-            loon: 'text/plain',
-            v2rayn: 'text/plain',
-            v2rayng: 'text/plain',
-            surfboard: 'text/plain',
-            stash: 'text/yaml',
-            singbox: 'application/json'
-        }
+        let nodes = parseSubscription(await response.text())
+        nodes = filterNodes(nodes, params)
+        if (params.sort === '1') nodes.sort((a, b) => a.name.localeCompare(b.name))
+        if (params.emoji !== '0') nodes = nodes.map(node => ({ ...node, name: addEmoji(node.name) }))
+        if (params.rename) nodes = renameNodes(nodes, params.rename)
+        if (!nodes.length) return json(422, { error: 'No supported nodes found in subscription' })
+
+        const body = convertToTarget(nodes, target, {
+            udp: params.udp !== '0',
+            skipCert: params.scert === '1',
+            rulePreset: params.rulePreset || ''
+        })
 
         return {
             statusCode: 200,
             headers: {
                 ...headers,
-                'Content-Type': contentTypes[target] || 'text/plain',
-                'Content-Disposition': `attachment; filename="config.${target === 'singbox' ? 'json' :
-                    ['clash', 'clashmeta', 'stash'].includes(target) ? 'yaml' :
-                        ['surge', 'loon', 'surfboard'].includes(target) ? 'conf' : 'txt'
-                    }"`
+                'Content-Type': contentType(target),
+                'Content-Disposition': `attachment; filename="config.${extension(target)}"`
             },
-            body: output
+            body
         }
-
     } catch (error) {
-        console.error('Conversion error:', error)
-        return {
-            statusCode: 500,
-            headers: { ...headers, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ error: 'Conversion failed', message: error.message })
-        }
+        return json(500, { error: 'Conversion failed', message: error.message })
     }
 }
 
-// 解析订阅内容
-function parseSubscription(content) {
-    const nodes = []
-
-    // 尝试 Base64 解码
-    try {
-        const decoded = Buffer.from(content, 'base64').toString('utf-8')
-        if (decoded.includes('://')) {
-            content = decoded
-        }
-    } catch (e) {
-        // 不是 Base64 格式，使用原始内�?
+function filterNodes(nodes, params) {
+    let output = nodes
+    if (params.include) {
+        const keywords = params.include.split('|').map(item => item.trim()).filter(Boolean)
+        output = output.filter(node => keywords.some(keyword => node.name.includes(keyword)))
     }
-
-    // 解析节点链接
-    const lines = content.split('\n').filter(line => line.trim())
-
-    for (const line of lines) {
-        const trimmed = line.trim()
-
-        if (trimmed.startsWith('ss://')) {
-            const node = parseSS(trimmed)
-            if (node) nodes.push(node)
-        } else if (trimmed.startsWith('vmess://')) {
-            const node = parseVmess(trimmed)
-            if (node) nodes.push(node)
-        } else if (trimmed.startsWith('vless://')) {
-            const node = parseVless(trimmed)
-            if (node) nodes.push(node)
-        } else if (trimmed.startsWith('trojan://')) {
-            const node = parseTrojan(trimmed)
-            if (node) nodes.push(node)
-        }
+    if (params.exclude) {
+        const keywords = params.exclude.split('|').map(item => item.trim()).filter(Boolean)
+        output = output.filter(node => !keywords.some(keyword => node.name.includes(keyword)))
     }
-
-    return nodes
+    return output
 }
 
-// SS 解析
-function parseSS(uri) {
-    try {
-        const url = new URL(uri)
-        const name = decodeURIComponent(url.hash.slice(1)) || 'SS Node'
-        const [method, password] = Buffer.from(url.username, 'base64').toString().split(':')
-
-        return {
-            type: 'ss',
-            name,
-            server: url.hostname,
-            port: parseInt(url.port),
-            method,
-            password
+function renameNodes(nodes, rename) {
+    const rules = rename.split('\n').filter(rule => rule.includes('->'))
+    return nodes.map(node => {
+        let name = node.name
+        for (const rule of rules) {
+            const [from, to = ''] = rule.split('->')
+            name = name.split(from.trim()).join(to.trim())
         }
-    } catch (e) {
-        return null
-    }
-}
-
-// VMess 解析
-function parseVmess(uri) {
-    try {
-        const data = JSON.parse(Buffer.from(uri.slice(8), 'base64').toString())
-        return {
-            type: 'vmess',
-            name: data.ps || 'VMess Node',
-            server: data.add,
-            port: parseInt(data.port),
-            uuid: data.id,
-            alterId: parseInt(data.aid) || 0,
-            network: data.net || 'tcp',
-            tls: data.tls === 'tls',
-            ws: data.net === 'ws' ? {
-                path: data.path || '/',
-                headers: data.host ? { Host: data.host } : {}
-            } : null
-        }
-    } catch (e) {
-        return null
-    }
-}
-
-// VLESS 解析
-function parseVless(uri) {
-    try {
-        const url = new URL(uri)
-        return {
-            type: 'vless',
-            name: decodeURIComponent(url.hash.slice(1)) || 'VLESS Node',
-            server: url.hostname,
-            port: parseInt(url.port),
-            uuid: url.username,
-            flow: url.searchParams.get('flow') || '',
-            network: url.searchParams.get('type') || 'tcp',
-            tls: url.searchParams.get('security') === 'tls'
-        }
-    } catch (e) {
-        return null
-    }
-}
-
-// Trojan 解析
-function parseTrojan(uri) {
-    try {
-        const url = new URL(uri)
-        return {
-            type: 'trojan',
-            name: decodeURIComponent(url.hash.slice(1)) || 'Trojan Node',
-            server: url.hostname,
-            port: parseInt(url.port),
-            password: url.username,
-            sni: url.searchParams.get('sni') || url.hostname
-        }
-    } catch (e) {
-        return null
-    }
-}
-
-// 添加 Emoji
-function addEmoji(name) {
-    const emojiMap = {
-        '香港': '🇭🇰',
-        'HK': '🇭🇰',
-        '台湾': '🇹🇼',
-        'TW': '🇹🇼',
-        '日本': '🇯🇵',
-        'JP': '🇯🇵',
-        '新加�?: '🇸🇬',
-        'SG': '🇸🇬',
-        '美国': '🇺🇸',
-        'US': '🇺🇸',
-        '韩国': '🇰🇷',
-        'KR': '🇰🇷',
-        '英国': '🇬🇧',
-        'UK': '🇬🇧',
-        '德国': '🇩🇪',
-        'DE': '🇩🇪',
-        '法国': '🇫🇷',
-        'FR': '🇫🇷',
-        '俄罗�?: '🇷🇺',
-        'RU': '🇷🇺'
-    }
-
-    for (const [key, emoji] of Object.entries(emojiMap)) {
-        if (name.includes(key)) {
-            return `${emoji} ${name}`
-        }
-    }
-    return `🌐 ${name}`
-}
-
-// 转换为目标格�?
-function convertToTarget(nodes, target, options) {
-    switch (target) {
-        case 'clash':
-        case 'clashmeta':
-        case 'stash':
-            return convertToClash(nodes, options)
-        case 'surge':
-        case 'surfboard':
-            return convertToSurge(nodes, options)
-        case 'quantumultx':
-            return convertToQuantumultX(nodes, options)
-        case 'shadowrocket':
-        case 'v2rayn':
-        case 'v2rayng':
-            return convertToBase64(nodes)
-        case 'loon':
-            return convertToLoon(nodes, options)
-        case 'singbox':
-            return convertToSingBox(nodes, options)
-        default:
-            return ''
-    }
-}
-
-// Clash 格式
-function convertToClash(nodes, options) {
-    const proxies = nodes.map(node => {
-        const base = {
-            name: node.name,
-            server: node.server,
-            port: node.port
-        }
-
-        if (options.udp) base.udp = true
-
-        switch (node.type) {
-            case 'ss':
-                return { ...base, type: 'ss', cipher: node.method, password: node.password }
-            case 'vmess':
-                return {
-                    ...base,
-                    type: 'vmess',
-                    uuid: node.uuid,
-                    alterId: node.alterId,
-                    cipher: 'auto',
-                    network: node.network,
-                    tls: node.tls,
-                    'skip-cert-verify': options.skipCert,
-                    ...(node.ws ? { 'ws-opts': node.ws } : {})
-                }
-            case 'vless':
-                return { ...base, type: 'vless', uuid: node.uuid, flow: node.flow }
-            case 'trojan':
-                return { ...base, type: 'trojan', password: node.password, sni: node.sni }
-            default:
-                return base
-        }
+        return { ...node, name }
     })
+}
 
-    const config = {
-        proxies,
-        'proxy-groups': [
-            {
-                name: '🚀 节点选择',
-                type: 'select',
-                proxies: ['♻️ 自动选择', 'DIRECT', ...nodes.map(n => n.name)]
-            },
-            {
-                name: '♻️ 自动选择',
-                type: 'url-test',
-                proxies: nodes.map(n => n.name),
-                url: 'http://www.gstatic.com/generate_204',
-                interval: 300
-            }
-        ]
+function json(statusCode, data) {
+    return {
+        statusCode,
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
     }
-
-    return `# LaoWang Sub-converter 生成
-# 节点数量: ${nodes.length}
-# 生成时间: ${new Date().toISOString()}
-
-${yamlStringify(config)}`
 }
 
-// 简�?YAML 序列�?
-function yamlStringify(obj, indent = 0) {
-    const spaces = '  '.repeat(indent)
-    let result = ''
-
-    if (Array.isArray(obj)) {
-        for (const item of obj) {
-            if (typeof item === 'object') {
-                result += `${spaces}-\n${yamlStringify(item, indent + 1)}`
-            } else {
-                result += `${spaces}- ${item}\n`
-            }
-        }
-    } else if (typeof obj === 'object') {
-        for (const [key, value] of Object.entries(obj)) {
-            if (value === undefined || value === null) continue
-
-            if (typeof value === 'object') {
-                result += `${spaces}${key}:\n${yamlStringify(value, indent + 1)}`
-            } else if (typeof value === 'string' && value.includes(':')) {
-                result += `${spaces}${key}: "${value}"\n`
-            } else {
-                result += `${spaces}${key}: ${value}\n`
-            }
-        }
-    }
-
-    return result
+function contentType(target) {
+    if (['singbox', 'sing-box', 'nekobox', 'hiddify', 'sfa', 'sfi', 'sfm'].includes(target)) return 'application/json'
+    if (['clash', 'clashmeta', 'mihomo', 'stash', 'clashverge', 'clash-verge', 'clashnyanpasu', 'clash-nyanpasu', 'flclash'].includes(target)) return 'text/yaml'
+    return 'text/plain'
 }
 
-// 其他格式转换函数（完整版�?
-function convertToSurge(nodes, options) {
-    return nodes.map(node => {
-        switch (node.type) {
-            case 'ss':
-                return `${node.name} = ss, ${node.server}, ${node.port}, encrypt-method=${node.method}, password=${node.password}`
-            case 'vmess':
-                let vmess = `${node.name} = vmess, ${node.server}, ${node.port}, username=${node.uuid}`
-                if (node.tls) vmess += ', tls=true'
-                if (node.ws) {
-                    vmess += ', ws=true'
-                    if (node.ws.path) vmess += `, ws-path=${node.ws.path}`
-                    if (node.ws.headers && node.ws.headers.Host) vmess += `, ws-headers=Host:${node.ws.headers.Host}`
-                }
-                if (options.skipCert) vmess += ', skip-cert-verify=true'
-                return vmess
-            case 'trojan':
-                let trojan = `${node.name} = trojan, ${node.server}, ${node.port}, password=${node.password}`
-                if (node.sni) trojan += `, sni=${node.sni}`
-                if (options.skipCert) trojan += ', skip-cert-verify=true'
-                return trojan
-            default:
-                return ''
-        }
-    }).filter(Boolean).join('\n')
-}
-
-function convertToQuantumultX(nodes, options) {
-    return nodes.map(node => {
-        switch (node.type) {
-            case 'ss':
-                return `shadowsocks=${node.server}:${node.port}, method=${node.method}, password=${node.password}, tag=${node.name}`
-            case 'vmess':
-                let vmess = `vmess=${node.server}:${node.port}, method=auto, password=${node.uuid}, tag=${node.name}`
-                if (node.tls) vmess += ', tls=1'
-                if (node.ws) {
-                    vmess += ', obfs=ws'
-                    if (node.ws.path) vmess += `, obfs-uri=${node.ws.path}`
-                    if (node.ws.headers && node.ws.headers.Host) vmess += `, obfs-host=${node.ws.headers.Host}`
-                }
-                if (options.skipCert) vmess += ', tls-verification=false'
-                return vmess
-            case 'trojan':
-                let trojan = `trojan=${node.server}:${node.port}, password=${node.password}, tag=${node.name}`
-                if (node.sni) trojan += `, tls-host=${node.sni}`
-                if (options.skipCert) trojan += ', tls-verification=false'
-                return trojan
-            default:
-                return ''
-        }
-    }).filter(Boolean).join('\n')
-}
-
-function convertToLoon(nodes, options) {
-    return nodes.map(node => {
-        switch (node.type) {
-            case 'ss':
-                return `${node.name} = Shadowsocks,${node.server},${node.port},${node.method},"${node.password}"`
-            case 'vmess':
-                let vmess = `${node.name} = vmess,${node.server},${node.port},auto,"${node.uuid}"`
-                if (node.ws) {
-                    vmess += ',transport=ws'
-                    if (node.ws.path) vmess += `,path=${node.ws.path}`
-                    if (node.ws.headers && node.ws.headers.Host) vmess += `,host=${node.ws.headers.Host}`
-                }
-                if (node.tls) vmess += ',over-tls=true'
-                if (options.skipCert) vmess += ',skip-cert-verify=true'
-                return vmess
-            case 'trojan':
-                let trojan = `${node.name} = trojan,${node.server},${node.port},"${node.password}"`
-                if (node.sni) trojan += `,sni=${node.sni}`
-                if (options.skipCert) trojan += ',skip-cert-verify=true'
-                return trojan
-            default:
-                return ''
-        }
-    }).filter(Boolean).join('\n')
-}
-
-// Base64 格式
-function convertToBase64(nodes) {
-    const links = nodes.map(node => {
-        switch (node.type) {
-            case 'ss':
-                const ssAuth = Buffer.from(`${node.method}:${node.password}`).toString('base64')
-                return `ss://${ssAuth}@${node.server}:${node.port}#${encodeURIComponent(node.name)}`
-            case 'vmess':
-                const vmessData = {
-                    v: '2',
-                    ps: node.name,
-                    add: node.server,
-                    port: node.port,
-                    id: node.uuid,
-                    aid: node.alterId,
-                    net: node.network,
-                    type: 'none',
-                    host: '',
-                    path: '',
-                    tls: node.tls ? 'tls' : ''
-                }
-
-                if (node.ws) {
-                    vmessData.path = node.ws.path
-                    if (node.ws.headers && node.ws.headers.Host) {
-                        vmessData.host = node.ws.headers.Host
-                    }
-                }
-
-                return `vmess://${Buffer.from(JSON.stringify(vmessData)).toString('base64')}`
-            case 'trojan':
-                return `trojan://${node.password}@${node.server}:${node.port}?peer=${encodeURIComponent(node.sni || node.server)}#${encodeURIComponent(node.name)}`
-            default:
-                return ''
-        }
-    }).filter(Boolean)
-
-    return Buffer.from(links.join('\n')).toString('base64')
-}
-
-// SingBox 格式
-function convertToSingBox(nodes, options) {
-    const outbounds = nodes.map(node => {
-        const base = {
-            tag: node.name,
-            server: node.server,
-            server_port: node.port
-        }
-
-        switch (node.type) {
-            case 'ss':
-                return { ...base, type: 'shadowsocks', method: node.method, password: node.password }
-            case 'vmess':
-                const vmess = {
-                    ...base,
-                    type: 'vmess',
-                    uuid: node.uuid,
-                    alter_id: node.alterId,
-                    security: 'auto'
-                }
-
-                if (node.tls) {
-                    vmess.tls = {
-                        enabled: true,
-                        server_name: node.ws?.headers?.Host || node.server,
-                        insecure: options.skipCert
-                    }
-                }
-
-                if (node.network === 'ws' && node.ws) {
-                    vmess.transport = {
-                        type: 'ws',
-                        path: node.ws.path,
-                        headers: node.ws.headers
-                    }
-                }
-
-                return vmess
-            case 'trojan':
-                const trojan = { ...base, type: 'trojan', password: node.password }
-                if (node.sni) {
-                    trojan.tls = {
-                        enabled: true,
-                        server_name: node.sni,
-                        insecure: options.skipCert
-                    }
-                }
-                return trojan
-            default:
-                return base
-        }
-    })
-
-    return JSON.stringify({
-        outbounds: [
-            { tag: 'proxy', type: 'selector', outbounds: nodes.map(n => n.name) },
-            ...outbounds,
-            { tag: 'direct', type: 'direct' }
-        ]
-    }, null, 2)
+function extension(target) {
+    if (contentType(target) === 'application/json') return 'json'
+    if (contentType(target) === 'text/yaml') return 'yaml'
+    if (['surge', 'loon', 'surfboard'].includes(target)) return 'conf'
+    return 'txt'
 }

@@ -1,7 +1,7 @@
 {
   "name": "laowang-sub-converter",
   "version": "1.0.0",
-  "description": "LaoWang Sub-converter - 专业的代理订阅转换服务",
+  "description": "老王订阅转换器 - 支持多协议、多客户端、健康检测和 Docker/NAS 部署的订阅转换工具",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -9,8 +9,8 @@
     "preview": "vite preview",
     "server": "node server/index.js",
     "start": "npm run build && npm run server",
-    "docker:build": "docker build -t laowang-sub-converter .",
-    "docker:run": "docker run -p 80:80 laowang-sub-converter",
+    "docker:build": "docker build -t laowang-sub-converter:latest .",
+    "docker:run": "docker run --rm -p 3000:3000 laowang-sub-converter:latest",
     "docker:compose": "docker-compose up -d"
   },
   "keywords": [
@@ -32,6 +32,7 @@
     "cors": "^2.8.5",
     "express": "^4.18.2",
     "js-yaml": "^4.1.1",
+    "lucide-vue-next": "^0.468.0",
     "qrcode": "^1.5.3",
     "vue": "^3.4.0",
     "vue-i18n": "^9.9.0",

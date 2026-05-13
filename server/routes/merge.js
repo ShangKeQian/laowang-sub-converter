@@ -83,14 +83,14 @@ router.post('/', async (req, res) => {
 
         // 过滤节点
         if (include) {
-            const keywords = include.split('|')
+            const keywords = include.split('|').map(kw => kw.trim()).filter(Boolean)
             allNodes = allNodes.filter(node =>
                 keywords.some(kw => node.name.includes(kw))
             )
         }
 
         if (exclude) {
-            const keywords = exclude.split('|')
+            const keywords = exclude.split('|').map(kw => kw.trim()).filter(Boolean)
             allNodes = allNodes.filter(node =>
                 !keywords.some(kw => node.name.includes(kw))
             )
@@ -104,7 +104,7 @@ router.post('/', async (req, res) => {
                 if (from && to !== undefined) {
                     allNodes = allNodes.map(node => ({
                         ...node,
-                        name: node.name.replace(from.trim(), to.trim())
+                        name: node.name.split(from.trim()).join(to.trim())
                     }))
                 }
             }
@@ -124,19 +124,34 @@ router.post('/', async (req, res) => {
         }
 
         // 转换为目标格式
+        if (allNodes.length === 0) {
+            return res.status(422).json({ error: 'No supported nodes found in subscriptions' })
+        }
+
         const output = convertToTarget(allNodes, target, { udp, skipCert })
 
         // 设置响应头
         const contentTypes = {
             clash: 'text/yaml',
             clashmeta: 'text/yaml',
+            mihomo: 'text/yaml',
             stash: 'text/yaml',
+            clashverge: 'text/yaml',
+            'clash-verge': 'text/yaml',
+            clashnyanpasu: 'text/yaml',
+            'clash-nyanpasu': 'text/yaml',
+            flclash: 'text/yaml',
             singbox: 'application/json',
-            nekobox: 'application/json'
+            'sing-box': 'application/json',
+            nekobox: 'application/json',
+            hiddify: 'application/json',
+            sfa: 'application/json',
+            sfi: 'application/json',
+            sfm: 'application/json'
         }
 
         res.setHeader('Content-Type', contentTypes[target] || 'text/plain')
-        res.setHeader('Content-Disposition', `attachment; filename="merged-${target}.${target === 'singbox' || target === 'nekobox' ? 'json' : target.includes('clash') ? 'yaml' : 'txt'}"`)
+        res.setHeader('Content-Disposition', `attachment; filename="merged-${target}.${['singbox', 'sing-box', 'nekobox', 'hiddify', 'sfa', 'sfi', 'sfm'].includes(target) ? 'json' : ['clash', 'clashmeta', 'mihomo', 'stash', 'clashverge', 'clash-verge', 'clashnyanpasu', 'clash-nyanpasu', 'flclash'].includes(target) ? 'yaml' : 'txt'}"`)
 
         // 如果请求 JSON 格式的响应
         if (req.query.format === 'json') {

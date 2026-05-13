@@ -1,356 +1,688 @@
 import { Buffer } from 'buffer'
+import yaml from 'js-yaml'
 
-// 解析订阅内容
-export function parseSubscription(content) {
-    const nodes = []
+function decodeBase64(input) {
+    const normalized = String(input || '')
+        .trim()
+        .replace(/-/g, '+')
+        .replace(/_/g, '/')
+    const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, '=')
+    return Buffer.from(padded, 'base64').toString('utf8')
+}
 
-    // 尝试 Base64 解码
+function encodeBase64Url(input) {
+    return Buffer.from(String(input)).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '')
+}
+
+function safeDecode(value = '') {
     try {
-        const decoded = Buffer.from(content, 'base64').toString('utf-8')
-        if (decoded.includes('://')) {
-            content = decoded
-        }
-    } catch (e) {
-        // 不是 Base64 格式，使用原始内容
+        return decodeURIComponent(value)
+    } catch {
+        return value
+    }
+}
+
+function parsePort(value, fallback) {
+    const port = Number.parseInt(value, 10)
+    return Number.isInteger(port) && port > 0 ? port : fallback
+}
+
+function splitLines(content) {
+    return String(content || '')
+        .replace(/\r/g, '')
+        .split('\n')
+        .map(line => line.trim())
+        .filter(line => line && !line.startsWith('#'))
+}
+
+export function parseSubscription(content) {
+    let body = String(content || '').trim()
+
+    try {
+        const decoded = decodeBase64(body)
+        if (decoded.includes('://')) body = decoded
+    } catch {
+        // Plain subscriptions are expected too.
     }
 
-    // 解析节点链接
-    const lines = content.split('\n').filter(line => line.trim())
+    const structuredNodes = parseStructuredSubscription(body)
+    if (structuredNodes.length) return structuredNodes
 
-    for (const line of lines) {
-        const trimmed = line.trim()
+    const nodes = []
+    for (const line of splitLines(body)) {
+        const parser = line.startsWith('ss://') ? parseSS
+            : line.startsWith('ssr://') ? parseSSR
+                : line.startsWith('vmess://') ? parseVmess
+                    : line.startsWith('vless://') ? parseVless
+                        : line.startsWith('trojan://') ? parseTrojan
+                            : line.startsWith('hysteria://') ? parseHysteria
+                                : (line.startsWith('hysteria2://') || line.startsWith('hy2://')) ? parseHysteria2
+                                    : line.startsWith('tuic://') ? parseTuic
+                                        : line.startsWith('snell://') ? parseSnell
+                                            : (line.startsWith('socks://') || line.startsWith('socks5://')) ? parseSocks
+                                                : (line.startsWith('http://') || line.startsWith('https://')) ? parseHttpProxy
+                                        : null
 
-        if (trimmed.startsWith('ss://')) {
-            const node = parseSS(trimmed)
-            if (node) nodes.push(node)
-        } else if (trimmed.startsWith('vmess://')) {
-            const node = parseVmess(trimmed)
-            if (node) nodes.push(node)
-        } else if (trimmed.startsWith('vless://')) {
-            const node = parseVless(trimmed)
-            if (node) nodes.push(node)
-        } else if (trimmed.startsWith('trojan://')) {
-            const node = parseTrojan(trimmed)
-            if (node) nodes.push(node)
-        } else if (trimmed.startsWith('hysteria://')) {
-            const node = parseHysteria(trimmed)
-            if (node) nodes.push(node)
-        } else if (trimmed.startsWith('hysteria2://') || trimmed.startsWith('hy2://')) {
-            const node = parseHysteria2(trimmed)
-            if (node) nodes.push(node)
-        } else if (trimmed.startsWith('tuic://')) {
-            const node = parseTuic(trimmed)
-            if (node) nodes.push(node)
-        } else if (trimmed.startsWith('ssr://')) {
-            const node = parseSSR(trimmed)
-            if (node) nodes.push(node)
-        }
+        if (!parser) continue
+        const node = parser(line)
+        if (node && node.server && node.port) nodes.push(node)
     }
 
     return nodes
 }
 
-// SS 解析 - 支持多种格式
+function parseStructuredSubscription(body) {
+    const trimmed = String(body || '').trim()
+    if (!trimmed) return []
+
+    if (trimmed.startsWith('{')) {
+        try {
+            const config = JSON.parse(trimmed)
+            if (Array.isArray(config.outbounds)) {
+                return config.outbounds.map(fromSingBoxOutbound).filter(Boolean)
+            }
+        } catch {
+            return []
+        }
+    }
+
+    if (!trimmed.includes('proxies:')) return []
+
+    try {
+        const config = yaml.load(trimmed)
+        if (!config || !Array.isArray(config.proxies)) return []
+        return config.proxies.map(fromClashProxy).filter(Boolean)
+    } catch {
+        return []
+    }
+}
+
+function fromClashProxy(proxy) {
+    if (!proxy || typeof proxy !== 'object') return null
+    const base = {
+        type: proxy.type,
+        name: proxy.name || `${proxy.type || 'Proxy'} Node`,
+        server: proxy.server,
+        port: parsePort(proxy.port)
+    }
+    if (!base.server || !base.port) return null
+
+    switch (proxy.type) {
+        case 'ss':
+            return { ...base, method: proxy.cipher, password: proxy.password, plugin: proxy.plugin, pluginOpts: proxy['plugin-opts'] }
+        case 'ssr':
+            return {
+                ...base,
+                method: proxy.cipher,
+                password: proxy.password,
+                protocol: proxy.protocol,
+                protocolParam: proxy['protocol-param'] || '',
+                obfs: proxy.obfs,
+                obfsParam: proxy['obfs-param'] || ''
+            }
+        case 'vmess':
+            return withClashTransport({
+                ...base,
+                uuid: proxy.uuid,
+                alterId: proxy.alterId || proxy['alter-id'] || 0,
+                cipher: proxy.cipher || 'auto',
+                network: proxy.network || 'tcp',
+                tls: proxy.tls === true,
+                sni: proxy.servername || proxy.sni || proxy.server
+            }, proxy)
+        case 'vless':
+            return withClashTransport({
+                ...base,
+                uuid: proxy.uuid,
+                flow: proxy.flow || '',
+                network: proxy.network || 'tcp',
+                tls: proxy.tls === true || Boolean(proxy['reality-opts']),
+                security: proxy['reality-opts'] ? 'reality' : (proxy.tls ? 'tls' : ''),
+                sni: proxy.servername || proxy.sni || proxy.server,
+                reality: proxy['reality-opts'] ? {
+                    publicKey: proxy['reality-opts']['public-key'] || '',
+                    shortId: proxy['reality-opts']['short-id'] || '',
+                    fingerprint: proxy['client-fingerprint'] || 'chrome',
+                    sni: proxy.servername || proxy.sni || proxy.server
+                } : null
+            }, proxy)
+        case 'trojan':
+            return withClashTransport({
+                ...base,
+                password: proxy.password,
+                network: proxy.network || 'tcp',
+                sni: proxy.sni || proxy.servername || proxy.server,
+                alpn: proxy.alpn || []
+            }, proxy)
+        case 'hysteria':
+            return {
+                ...base,
+                auth: proxy.auth_str || proxy.auth || '',
+                up: parsePort(proxy.up, 100),
+                down: parsePort(proxy.down, 100),
+                alpn: Array.isArray(proxy.alpn) ? proxy.alpn[0] : (proxy.alpn || 'h3'),
+                obfs: proxy.obfs || '',
+                sni: proxy.sni || proxy.server,
+                insecure: proxy['skip-cert-verify'] === true
+            }
+        case 'hysteria2':
+            return {
+                ...base,
+                password: proxy.password || '',
+                obfs: proxy.obfs || '',
+                obfsPassword: proxy['obfs-password'] || '',
+                sni: proxy.sni || proxy.server,
+                insecure: proxy['skip-cert-verify'] === true
+            }
+        case 'tuic':
+            return {
+                ...base,
+                uuid: proxy.uuid,
+                password: proxy.password,
+                congestion: proxy['congestion-controller'] || proxy.congestion_control || 'bbr',
+                alpn: proxy.alpn || ['h3'],
+                sni: proxy.sni || proxy.server,
+                insecure: proxy['skip-cert-verify'] === true,
+                udpRelayMode: proxy['udp-relay-mode'] || 'native'
+            }
+        case 'snell':
+            return {
+                ...base,
+                psk: proxy.psk || proxy.password || '',
+                version: parsePort(proxy.version, 3),
+                obfs: proxy.obfs || proxy['obfs-opts']?.mode || '',
+                obfsHost: proxy['obfs-opts']?.host || ''
+            }
+        case 'http':
+            return {
+                ...base,
+                username: proxy.username || '',
+                password: proxy.password || '',
+                tls: proxy.tls === true,
+                sni: proxy.sni || proxy.servername || proxy.server
+            }
+        case 'socks5':
+        case 'socks':
+            return {
+                ...base,
+                type: 'socks5',
+                username: proxy.username || '',
+                password: proxy.password || '',
+                tls: proxy.tls === true
+            }
+        default:
+            return null
+    }
+}
+
+function withClashTransport(node, proxy) {
+    if (node.network === 'ws' && proxy['ws-opts']) {
+        node.ws = {
+            path: proxy['ws-opts'].path || '/',
+            headers: proxy['ws-opts'].headers || {}
+        }
+    }
+    if (node.network === 'grpc' && proxy['grpc-opts']) {
+        node.grpc = {
+            serviceName: proxy['grpc-opts']['grpc-service-name'] || ''
+        }
+    }
+    return node
+}
+
+function fromSingBoxOutbound(outbound) {
+    if (!outbound || typeof outbound !== 'object' || !outbound.server || !outbound.server_port) return null
+    const typeMap = {
+        shadowsocks: 'ss',
+        shadowsocksr: 'ssr',
+        socks: 'socks5'
+    }
+    const type = typeMap[outbound.type] || outbound.type
+    const base = {
+        type,
+        name: outbound.tag || `${type} Node`,
+        server: outbound.server,
+        port: parsePort(outbound.server_port)
+    }
+
+    switch (type) {
+        case 'ss':
+            return { ...base, method: outbound.method, password: outbound.password }
+        case 'ssr':
+            return {
+                ...base,
+                method: outbound.method,
+                password: outbound.password,
+                protocol: outbound.protocol,
+                protocolParam: outbound.protocol_param || '',
+                obfs: outbound.obfs,
+                obfsParam: outbound.obfs_param || ''
+            }
+        case 'vmess':
+            return withSingBoxTransport({
+                ...base,
+                uuid: outbound.uuid,
+                alterId: outbound.alter_id || 0,
+                cipher: outbound.security || 'auto',
+                network: outbound.transport?.type || 'tcp',
+                tls: outbound.tls?.enabled === true,
+                sni: outbound.tls?.server_name || outbound.server
+            }, outbound)
+        case 'vless':
+            return withSingBoxTransport({
+                ...base,
+                uuid: outbound.uuid,
+                flow: outbound.flow || '',
+                network: outbound.transport?.type || 'tcp',
+                tls: outbound.tls?.enabled === true,
+                security: outbound.tls?.reality?.enabled ? 'reality' : (outbound.tls?.enabled ? 'tls' : ''),
+                sni: outbound.tls?.server_name || outbound.server,
+                reality: outbound.tls?.reality?.enabled ? {
+                    publicKey: outbound.tls.reality.public_key || '',
+                    shortId: outbound.tls.reality.short_id || '',
+                    fingerprint: 'chrome',
+                    sni: outbound.tls.server_name || outbound.server
+                } : null
+            }, outbound)
+        case 'trojan':
+            return withSingBoxTransport({
+                ...base,
+                password: outbound.password,
+                network: outbound.transport?.type || 'tcp',
+                sni: outbound.tls?.server_name || outbound.server,
+                alpn: outbound.tls?.alpn || []
+            }, outbound)
+        case 'hysteria':
+            return {
+                ...base,
+                auth: outbound.auth_str || outbound.auth || '',
+                up: parsePort(outbound.up_mbps, 100),
+                down: parsePort(outbound.down_mbps, 100),
+                alpn: outbound.tls?.alpn?.[0] || 'h3',
+                obfs: outbound.obfs || '',
+                sni: outbound.tls?.server_name || outbound.server,
+                insecure: outbound.tls?.insecure === true
+            }
+        case 'hysteria2':
+            return {
+                ...base,
+                password: outbound.password || '',
+                obfs: outbound.obfs?.type || '',
+                obfsPassword: outbound.obfs?.password || '',
+                sni: outbound.tls?.server_name || outbound.server,
+                insecure: outbound.tls?.insecure === true
+            }
+        case 'tuic':
+            return {
+                ...base,
+                uuid: outbound.uuid,
+                password: outbound.password,
+                congestion: outbound.congestion_control || 'bbr',
+                alpn: outbound.tls?.alpn || ['h3'],
+                sni: outbound.tls?.server_name || outbound.server,
+                insecure: outbound.tls?.insecure === true,
+                udpRelayMode: outbound.udp_relay_mode || 'native'
+            }
+        case 'http':
+            return {
+                ...base,
+                username: outbound.username || '',
+                password: outbound.password || '',
+                tls: outbound.tls?.enabled === true,
+                sni: outbound.tls?.server_name || outbound.server
+            }
+        case 'socks5':
+            return {
+                ...base,
+                username: outbound.username || '',
+                password: outbound.password || ''
+            }
+        default:
+            return null
+    }
+}
+
+function withSingBoxTransport(node, outbound) {
+    if (node.network === 'ws') {
+        node.ws = {
+            path: outbound.transport?.path || '/',
+            headers: outbound.transport?.headers || {}
+        }
+    }
+    if (node.network === 'grpc') {
+        node.grpc = {
+            serviceName: outbound.transport?.service_name || ''
+        }
+    }
+    return node
+}
+
 function parseSS(uri) {
     try {
-        // 格式1: ss://base64@server:port#name (SIP002)
-        // 格式2: ss://base64#name (旧格式，整体 base64 编码)
-
         const hashIndex = uri.indexOf('#')
-        const name = hashIndex > -1 ? decodeURIComponent(uri.slice(hashIndex + 1)) : 'SS Node'
-        const uriWithoutHash = hashIndex > -1 ? uri.slice(0, hashIndex) : uri
+        const name = hashIndex >= 0 ? safeDecode(uri.slice(hashIndex + 1)) : 'SS Node'
+        const raw = hashIndex >= 0 ? uri.slice(5, hashIndex) : uri.slice(5)
 
-        // 尝试 SIP002 格式解析
-        try {
-            const url = new URL(uriWithoutHash)
-            if (url.username && url.hostname && url.port) {
-                // base64@server:port 格式
-                const decoded = Buffer.from(decodeURIComponent(url.username), 'base64').toString()
-                const [method, password] = decoded.split(':')
+        if (raw.includes('@')) {
+            const atIndex = raw.lastIndexOf('@')
+            const authPart = raw.slice(0, atIndex)
+            const serverPart = raw.slice(atIndex + 1)
+            const auth = authPart.includes(':') ? safeDecode(authPart) : decodeBase64(safeDecode(authPart))
+            const split = auth.indexOf(':')
+            const [server, port] = splitHostPort(serverPart)
 
-                if (method && password) {
-                    return {
-                        type: 'ss',
-                        name,
-                        server: url.hostname,
-                        port: parseInt(url.port),
-                        method,
-                        password
-                    }
-                }
-            }
-        } catch (e) {
-            // SIP002 解析失败，尝试旧格式
-        }
-
-        // 尝试旧格式: ss://base64编码的(method:password@server:port)
-        const base64Part = uriWithoutHash.slice(5) // 去掉 "ss://"
-        const decoded = Buffer.from(base64Part, 'base64').toString()
-
-        // 解析 method:password@server:port
-        const atIndex = decoded.lastIndexOf('@')
-        if (atIndex > -1) {
-            const [methodPassword, serverPort] = [decoded.slice(0, atIndex), decoded.slice(atIndex + 1)]
-            const colonIndex = methodPassword.indexOf(':')
-            const lastColonIndex = serverPort.lastIndexOf(':')
-
-            if (colonIndex > -1 && lastColonIndex > -1) {
-                const method = methodPassword.slice(0, colonIndex)
-                const password = methodPassword.slice(colonIndex + 1)
-                const server = serverPort.slice(0, lastColonIndex)
-                const port = parseInt(serverPort.slice(lastColonIndex + 1))
-
+            if (split > 0 && server && port) {
                 return {
                     type: 'ss',
                     name,
                     server,
                     port,
-                    method,
-                    password
+                    method: auth.slice(0, split),
+                    password: auth.slice(split + 1)
                 }
             }
         }
 
-        return null
-    } catch (e) {
-        console.error('SS parse error:', e.message)
+        const decoded = decodeBase64(raw)
+        const atIndex = decoded.lastIndexOf('@')
+        if (atIndex < 0) return null
+
+        const auth = decoded.slice(0, atIndex)
+        const target = decoded.slice(atIndex + 1)
+        const split = auth.indexOf(':')
+        const [server, port] = splitHostPort(target)
+        if (split < 1 || !server || !port) return null
+
+        return {
+            type: 'ss',
+            name,
+            server,
+            port,
+            method: auth.slice(0, split),
+            password: auth.slice(split + 1)
+        }
+    } catch {
         return null
     }
 }
 
-// VMess 解析
+function splitHostPort(value) {
+    const raw = safeDecode(value)
+    if (raw.startsWith('[')) {
+        const end = raw.indexOf(']')
+        return [raw.slice(1, end), parsePort(raw.slice(end + 2))]
+    }
+    const index = raw.lastIndexOf(':')
+    return index > 0 ? [raw.slice(0, index), parsePort(raw.slice(index + 1))] : [raw, undefined]
+}
+
 function parseVmess(uri) {
     try {
-        const data = JSON.parse(Buffer.from(uri.slice(8), 'base64').toString())
+        const data = JSON.parse(decodeBase64(uri.slice(8)))
         return {
             type: 'vmess',
             name: data.ps || 'VMess Node',
             server: data.add,
-            port: parseInt(data.port),
+            port: parsePort(data.port, 443),
             uuid: data.id,
-            alterId: parseInt(data.aid) || 0,
+            alterId: Number.parseInt(data.aid, 10) || 0,
+            cipher: data.scy || 'auto',
             network: data.net || 'tcp',
             tls: data.tls === 'tls',
+            sni: data.sni || data.host || data.add,
             ws: data.net === 'ws' ? {
                 path: data.path || '/',
                 headers: data.host ? { Host: data.host } : {}
+            } : null,
+            grpc: data.net === 'grpc' ? {
+                serviceName: data.path || data.serviceName || ''
             } : null
         }
-    } catch (e) {
+    } catch {
         return null
     }
 }
 
-// VLESS 解析
 function parseVless(uri) {
     try {
         const url = new URL(uri)
         const params = url.searchParams
+        const security = params.get('security') || (params.get('tls') === '1' ? 'tls' : '')
+        const network = params.get('type') || 'tcp'
+
         return {
             type: 'vless',
-            name: decodeURIComponent(url.hash.slice(1)) || 'VLESS Node',
+            name: safeDecode(url.hash.slice(1)) || 'VLESS Node',
             server: url.hostname,
-            port: parseInt(url.port),
+            port: parsePort(url.port, 443),
             uuid: url.username,
             flow: params.get('flow') || '',
-            network: params.get('type') || 'tcp',
-            tls: ['tls', 'reality'].includes(params.get('security')) || params.get('tls') === '1',
-            ws: params.get('type') === 'ws' ? {
+            network,
+            tls: security === 'tls' || security === 'reality',
+            security,
+            sni: params.get('sni') || params.get('host') || url.hostname,
+            ws: network === 'ws' ? {
                 path: params.get('path') || '/',
                 headers: params.get('host') ? { Host: params.get('host') } : {}
             } : null,
-            grpc: params.get('type') === 'grpc' ? {
+            grpc: network === 'grpc' ? {
                 serviceName: params.get('serviceName') || ''
             } : null,
-            reality: params.get('security') === 'reality' ? {
+            reality: security === 'reality' ? {
                 publicKey: params.get('pbk') || '',
                 shortId: params.get('sid') || '',
-                sni: params.get('sni') || ''
+                fingerprint: params.get('fp') || 'chrome',
+                sni: params.get('sni') || url.hostname
             } : null
         }
-    } catch (e) {
+    } catch {
         return null
     }
 }
 
-// Trojan 解析
 function parseTrojan(uri) {
     try {
         const url = new URL(uri)
         const params = url.searchParams
         return {
             type: 'trojan',
-            name: decodeURIComponent(url.hash.slice(1)) || 'Trojan Node',
+            name: safeDecode(url.hash.slice(1)) || 'Trojan Node',
             server: url.hostname,
-            port: parseInt(url.port),
-            password: url.username,
-            sni: params.get('sni') || params.get('peer') || url.hostname,
-            alpn: params.get('alpn') ? params.get('alpn').split(',') : []
+            port: parsePort(url.port, 443),
+            password: safeDecode(url.username),
+            sni: params.get('sni') || params.get('peer') || params.get('host') || url.hostname,
+            alpn: params.get('alpn') ? params.get('alpn').split(',').filter(Boolean) : [],
+            network: params.get('type') || 'tcp',
+            ws: params.get('type') === 'ws' ? {
+                path: params.get('path') || '/',
+                headers: params.get('host') ? { Host: params.get('host') } : {}
+            } : null
         }
-    } catch (e) {
+    } catch {
         return null
     }
 }
 
-// 添加 Emoji
-
-// Hysteria 解析
 function parseHysteria(uri) {
     try {
-        const url = new URL(uri);
-        const params = url.searchParams;
+        const url = new URL(uri)
+        const params = url.searchParams
         return {
             type: 'hysteria',
-            name: decodeURIComponent(url.hash.slice(1)) || 'Hysteria Node',
+            name: safeDecode(url.hash.slice(1)) || 'Hysteria Node',
             server: url.hostname,
-            port: parseInt(url.port),
-            auth: params.get('auth') || url.username || '',
-            up: params.get('upmbps') || params.get('up') || '100',
-            down: params.get('downmbps') || params.get('down') || '100',
+            port: parsePort(url.port, 443),
+            auth: params.get('auth') || safeDecode(url.username) || '',
+            up: parsePort(params.get('upmbps') || params.get('up'), 100),
+            down: parsePort(params.get('downmbps') || params.get('down'), 100),
             alpn: params.get('alpn') || 'h3',
             obfs: params.get('obfs') || '',
-            insecure: params.get('insecure') === '1',
-            sni: params.get('peer') || params.get('sni') || url.hostname
-        };
-    } catch (e) { return null; }
+            sni: params.get('peer') || params.get('sni') || url.hostname,
+            insecure: params.get('insecure') === '1' || params.get('insecure') === 'true'
+        }
+    } catch {
+        return null
+    }
 }
 
-// Hysteria2 解析
 function parseHysteria2(uri) {
     try {
-        const normalizedUri = uri.replace('hy2://', 'hysteria2://');
-        const url = new URL(normalizedUri);
-        const params = url.searchParams;
+        const url = new URL(uri.replace('hy2://', 'hysteria2://'))
+        const params = url.searchParams
         return {
             type: 'hysteria2',
-            name: decodeURIComponent(url.hash.slice(1)) || 'Hysteria2 Node',
+            name: safeDecode(url.hash.slice(1)) || 'Hysteria2 Node',
             server: url.hostname,
-            port: parseInt(url.port) || 443,
-            password: url.username || params.get('auth') || '',
+            port: parsePort(url.port, 443),
+            password: safeDecode(url.username) || params.get('auth') || '',
             obfs: params.get('obfs') || '',
-            obfsPassword: params.get('obfs-password') || '',
+            obfsPassword: params.get('obfs-password') || params.get('obfs_password') || '',
             sni: params.get('sni') || url.hostname,
-            insecure: params.get('insecure') === '1'
-        };
-    } catch (e) { return null; }
+            insecure: params.get('insecure') === '1' || params.get('insecure') === 'true'
+        }
+    } catch {
+        return null
+    }
 }
 
-// TUIC 解析
 function parseTuic(uri) {
     try {
-        const url = new URL(uri);
-        const params = url.searchParams;
-        const userParts = url.username.split(':');
-        const uuid = userParts[0] || url.username;
-        const password = userParts[1] || url.password || '';
+        const url = new URL(uri)
+        const params = url.searchParams
         return {
             type: 'tuic',
-            name: decodeURIComponent(url.hash.slice(1)) || 'TUIC Node',
+            name: safeDecode(url.hash.slice(1)) || 'TUIC Node',
             server: url.hostname,
-            port: parseInt(url.port) || 443,
-            uuid, password,
+            port: parsePort(url.port, 443),
+            uuid: url.username,
+            password: safeDecode(url.password),
             congestion: params.get('congestion_control') || 'bbr',
-            alpn: params.get('alpn') ? params.get('alpn').split(',') : ['h3'],
+            alpn: params.get('alpn') ? params.get('alpn').split(',').filter(Boolean) : ['h3'],
             sni: params.get('sni') || url.hostname,
-            insecure: params.get('allow_insecure') === '1',
+            insecure: params.get('allow_insecure') === '1' || params.get('insecure') === '1',
             udpRelayMode: params.get('udp_relay_mode') || 'native'
-        };
-    } catch (e) { return null; }
+        }
+    } catch {
+        return null
+    }
 }
 
-// SSR 解析
+function parseSnell(uri) {
+    try {
+        const url = new URL(uri)
+        const params = url.searchParams
+        return {
+            type: 'snell',
+            name: safeDecode(url.hash.slice(1)) || 'Snell Node',
+            server: url.hostname,
+            port: parsePort(url.port, 443),
+            psk: safeDecode(url.username) || params.get('psk') || '',
+            version: parsePort(params.get('version') || params.get('v'), 3),
+            obfs: params.get('obfs') || '',
+            obfsHost: params.get('obfs-host') || params.get('obfs_host') || ''
+        }
+    } catch {
+        return null
+    }
+}
+
+function parseSocks(uri) {
+    try {
+        const normalized = uri.replace('socks://', 'socks5://')
+        const url = new URL(normalized)
+        return {
+            type: 'socks5',
+            name: safeDecode(url.hash.slice(1)) || 'SOCKS5 Node',
+            server: url.hostname,
+            port: parsePort(url.port, 1080),
+            username: safeDecode(url.username) || '',
+            password: safeDecode(url.password) || '',
+            tls: false
+        }
+    } catch {
+        return null
+    }
+}
+
+function parseHttpProxy(uri) {
+    try {
+        const url = new URL(uri)
+        if (!url.port && !url.username && !url.password && url.pathname && url.pathname !== '/') return null
+        return {
+            type: 'http',
+            name: safeDecode(url.hash.slice(1)) || 'HTTP Node',
+            server: url.hostname,
+            port: parsePort(url.port, url.protocol === 'https:' ? 443 : 80),
+            username: safeDecode(url.username) || '',
+            password: safeDecode(url.password) || '',
+            tls: url.protocol === 'https:',
+            sni: url.hostname
+        }
+    } catch {
+        return null
+    }
+}
+
 function parseSSR(uri) {
     try {
-        const base64Part = uri.slice(6);
-        const decoded = Buffer.from(base64Part.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString();
-        const mainPart = decoded.split('/?')[0];
-        const paramsPart = decoded.split('/?')[1] || '';
-        const parts = mainPart.split(':');
-        if (parts.length < 6) return null;
+        const decoded = decodeBase64(uri.slice(6))
+        const [mainPart, paramsPart = ''] = decoded.split('/?')
+        const parts = mainPart.split(':')
+        if (parts.length < 6) return null
 
-        const password = Buffer.from(parts[5].replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString();
-        const params = new URLSearchParams(paramsPart);
-
-        // 解析 remarks (节点名称)
-        const remarksBase64 = params.get('remarks') || '';
-        const name = remarksBase64 ? Buffer.from(remarksBase64.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString() : 'SSR Node';
-
-        // 解析 protocolParam
-        const protoparamBase64 = params.get('protoparam') || '';
-        const protocolParam = protoparamBase64 ? Buffer.from(protoparamBase64.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString() : '';
-
-        // 解析 obfsParam
-        const obfsparamBase64 = params.get('obfsparam') || '';
-        const obfsParam = obfsparamBase64 ? Buffer.from(obfsparamBase64.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString() : '';
+        const params = new URLSearchParams(paramsPart)
+        const remarks = params.get('remarks')
+        const protocolParam = params.get('protoparam')
+        const obfsParam = params.get('obfsparam')
 
         return {
             type: 'ssr',
-            name,
+            name: remarks ? decodeBase64(remarks) : 'SSR Node',
             server: parts[0],
-            port: parseInt(parts[1]),
+            port: parsePort(parts[1]),
             protocol: parts[2],
             method: parts[3],
             obfs: parts[4],
-            password,
-            protocolParam,
-            obfsParam
-        };
-    } catch (e) {
-        console.error('SSR parse error:', e.message);
-        return null;
+            password: decodeBase64(parts[5]),
+            protocolParam: protocolParam ? decodeBase64(protocolParam) : '',
+            obfsParam: obfsParam ? decodeBase64(obfsParam) : ''
+        }
+    } catch {
+        return null
     }
 }
 
 export function addEmoji(name) {
-    // 按长度排序的映射表，先匹配较长的字符串避免误判
-    const emojiPairs = [
-        // 中文 (先匹配，中文不需要大小写转换)
-        ['香港', '🇭🇰'], ['台湾', '🇹🇼'], ['日本', '🇯🇵'], ['新加坡', '🇸🇬'],
-        ['美国', '🇺🇸'], ['韩国', '🇰🇷'], ['英国', '🇬🇧'], ['德国', '🇩🇪'],
-        ['法国', '🇫🇷'], ['俄罗斯', '🇷🇺'], ['加拿大', '🇨🇦'], ['澳大利亚', '🇦🇺'],
-        ['荷兰', '🇳🇱'], ['印度', '🇮🇳'], ['巴西', '🇧🇷'], ['土耳其', '🇹🇷'],
-        ['阿根廷', '🇦🇷'], ['越南', '🇻🇳'], ['泰国', '🇹🇭'], ['马来西亚', '🇲🇾'],
-        ['菲律宾', '🇵🇭'], ['印尼', '🇮🇩'], ['意大利', '🇮🇹'], ['西班牙', '🇪🇸'],
-        ['瑞士', '🇨🇭'], ['波兰', '🇵🇱'], ['乌克兰', '🇺🇦'], ['爱尔兰', '🇮🇪'],
-        // 英文全称
-        ['Hong Kong', '🇭🇰'], ['Taiwan', '🇹🇼'], ['Japan', '🇯🇵'], ['Singapore', '🇸🇬'],
-        ['United States', '🇺🇸'], ['America', '🇺🇸'], ['Korea', '🇰🇷'], ['United Kingdom', '🇬🇧'],
-        ['Germany', '🇩🇪'], ['France', '🇫🇷'], ['Russia', '🇷🇺'], ['Canada', '🇨🇦'],
-        ['Australia', '🇦🇺'], ['Netherlands', '🇳🇱'], ['India', '🇮🇳'], ['Brazil', '🇧🇷'],
-        ['Turkey', '🇹🇷'], ['Italy', '🇮🇹'], ['Spain', '🇪🇸'], ['Switzerland', '🇨🇭'],
-        ['Poland', '🇵🇱'], ['Ukraine', '🇺🇦'], ['Ireland', '🇮🇪'], ['Thailand', '🇹🇭'],
-        ['Vietnam', '🇻🇳'], ['Malaysia', '🇲🇾'], ['Philippines', '🇵🇭'], ['Indonesia', '🇮🇩'],
-        ['Argentina', '🇦🇷'],
-        // 英文缩写 (最后匹配，只在单词边界匹配)
-        ['HK', '🇭🇰'], ['TW', '🇹🇼'], ['JP', '🇯🇵'], ['SG', '🇸🇬'],
-        ['US', '🇺🇸'], ['KR', '🇰🇷'], ['UK', '🇬🇧'], ['DE', '🇩🇪'],
-        ['FR', '🇫🇷'], ['RU', '🇷🇺'], ['CA', '🇨🇦'], ['AU', '🇦🇺'],
-        ['NL', '🇳🇱'], ['BR', '🇧🇷'], ['TR', '🇹🇷']
+    const rules = [
+        [['香港', 'Hong Kong', 'HK'], '🇭🇰'],
+        [['台湾', 'Taiwan', 'TW'], '🇹🇼'],
+        [['日本', 'Japan', 'JP'], '🇯🇵'],
+        [['新加坡', 'Singapore', 'SG'], '🇸🇬'],
+        [['美国', 'United States', 'America', 'USA', 'US'], '🇺🇸'],
+        [['韩国', 'Korea', 'KR'], '🇰🇷'],
+        [['英国', 'United Kingdom', 'UK'], '🇬🇧'],
+        [['德国', 'Germany', 'DE'], '🇩🇪'],
+        [['法国', 'France', 'FR'], '🇫🇷'],
+        [['俄罗斯', 'Russia', 'RU'], '🇷🇺'],
+        [['加拿大', 'Canada', 'CA'], '🇨🇦'],
+        [['澳大利亚', 'Australia', 'AU'], '🇦🇺'],
+        [['荷兰', 'Netherlands', 'NL'], '🇳🇱'],
+        [['印度', 'India', 'IN'], '🇮🇳'],
+        [['越南', 'Vietnam', 'VN'], '🇻🇳'],
+        [['泰国', 'Thailand', 'TH'], '🇹🇭']
     ]
 
-    const nameLower = name.toLowerCase()
-
-    for (const [key, emoji] of emojiPairs) {
-        // 判断是否为中文
-        const isChinese = /[\u4e00-\u9fa5]/.test(key)
-        // 判断是否为2字符英文缩写
-        const isShortCode = key.length === 2 && /^[A-Z]+$/.test(key)
-
-        if (isChinese) {
-            // 中文直接匹配
-            if (name.includes(key)) {
-                return `${emoji} ${name}`
-            }
-        } else if (isShortCode) {
-            // 对于2字符的缩写，使用单词边界匹配避免误判
-            const regex = new RegExp(`\\b${key}\\b`, 'i')
-            if (regex.test(name)) {
-                return `${emoji} ${name}`
-            }
-        } else if (nameLower.includes(key.toLowerCase())) {
-            // 英文全称不区分大小写匹配
+    if (/^[\p{Regional_Indicator}\p{Emoji_Presentation}]/u.test(name)) return name
+    for (const [keywords, emoji] of rules) {
+        if (keywords.some(key => new RegExp(key.length <= 3 ? `\\b${key}\\b` : key, 'i').test(name))) {
             return `${emoji} ${name}`
         }
     }
     return `🌐 ${name}`
+}
+
+export const base64 = {
+    encode: value => Buffer.from(String(value)).toString('base64'),
+    decode: decodeBase64,
+    encodeUrl: encodeBase64Url
 }

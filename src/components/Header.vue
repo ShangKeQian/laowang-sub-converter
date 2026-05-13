@@ -1,60 +1,38 @@
 <template>
   <header class="header">
-    <div class="container header-container">
-      <router-link to="/" class="logo">
-        <span class="logo-icon">⚡</span>
-        <span class="logo-text">LaoWang Sub-converter</span>
-      </router-link>
-      
-      <nav class="nav" :class="{ 'nav-open': menuOpen }">
-        <router-link to="/" class="nav-link" @click="closeMenu">
-          {{ $t('nav.home') }}
-        </router-link>
-        <router-link to="/converter" class="nav-link" @click="closeMenu">
-          {{ $t('nav.converter') }}
-        </router-link>
-        <router-link to="/shortlink" class="nav-link" @click="closeMenu">
-          {{ $t('nav.shortlink') }}
-        </router-link>
-        <router-link to="/about" class="nav-link" @click="closeMenu">
-          {{ $t('nav.about') }}
-        </router-link>
-      </nav>
+    <router-link to="/" class="logo">
+      <Network :size="24" />
+      <span>老王订阅转换器</span>
+    </router-link>
 
-      <div class="header-actions">
-        <ThemeSwitcher />
-        <LanguageSwitcher />
-        <a 
-          href="https://github.com/tony-wang1990/laowang-sub-converter" 
-          target="_blank" 
-          class="github-link"
-          title="GitHub"
-        >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
-          </svg>
-        </a>
-        <button class="menu-toggle" @click="toggleMenu">
-          <span></span>
-          <span></span>
-          <span></span>
-        </button>
-      </div>
+    <nav class="nav" :class="{ open: menuOpen }">
+      <router-link to="/" @click="closeMenu">控制台</router-link>
+      <router-link to="/converter" @click="closeMenu">订阅转换</router-link>
+      <router-link to="/merge" @click="closeMenu">订阅合并</router-link>
+      <router-link to="/health" @click="closeMenu">节点检测</router-link>
+      <router-link to="/shortlink" @click="closeMenu">短链接</router-link>
+      <router-link to="/about" @click="closeMenu">部署说明</router-link>
+    </nav>
+
+    <div class="header-actions">
+      <a href="https://github.com/tony-wang1990/laowang-sub-converter" target="_blank" title="GitHub">
+        <Github :size="20" />
+      </a>
+      <button class="menu-toggle" @click="toggleMenu" title="菜单">
+        <Menu :size="22" />
+      </button>
     </div>
   </header>
 </template>
 
 <script setup>
 import { ref } from 'vue'
-import LanguageSwitcher from './LanguageSwitcher.vue'
-import ThemeSwitcher from './ThemeSwitcher.vue'
+import { Github, Menu, Network } from 'lucide-vue-next'
 
 const menuOpen = ref(false)
-
 const toggleMenu = () => {
   menuOpen.value = !menuOpen.value
 }
-
 const closeMenu = () => {
   menuOpen.value = false
 }
@@ -63,142 +41,137 @@ const closeMenu = () => {
 <style scoped>
 .header {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
+  top: 14px;
+  left: 50%;
   z-index: 100;
-  background: rgba(10, 10, 15, 0.8);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border-bottom: 1px solid var(--color-border);
-}
-
-.header-container {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 70px;
+  width: min(1220px, calc(100% - 28px));
+  height: 68px;
+  padding: 0 14px 0 18px;
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  border-radius: 8px;
+  background: rgba(2, 6, 23, 0.86);
+  backdrop-filter: blur(18px);
+  box-shadow: 0 18px 54px rgba(0, 0, 0, 0.28);
+  transform: translateX(-50%);
+}
+
+.logo,
+.nav,
+.header-actions,
+.header-actions a,
+.menu-toggle {
+  display: flex;
+  align-items: center;
 }
 
 .logo {
-  display: flex;
-  align-items: center;
+  flex: 0 0 auto;
   gap: 10px;
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: var(--color-text-primary);
-  text-decoration: none;
+  color: #f8fafc;
+  font-size: 1.02rem;
+  font-weight: 900;
+  white-space: nowrap;
 }
 
-.logo-icon {
-  font-size: 1.8rem;
-}
-
-.logo-text {
-  background: var(--gradient-primary);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+.logo svg {
+  color: #67e8f9;
 }
 
 .nav {
-  display: flex;
-  gap: 2rem;
+  justify-content: center;
+  gap: 6px;
+  min-width: 0;
 }
 
-.nav-link {
-  color: var(--color-text-secondary);
-  text-decoration: none;
-  font-weight: 500;
-  transition: color var(--transition-fast);
-  position: relative;
+.nav a,
+.header-actions a,
+.menu-toggle {
+  min-height: 42px;
+  border-radius: 8px;
+  color: #94a3b8;
 }
 
-.nav-link::after {
-  content: '';
-  position: absolute;
-  bottom: -5px;
-  left: 0;
-  width: 0;
-  height: 2px;
-  background: var(--gradient-primary);
-  transition: width var(--transition-normal);
+.nav a {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 13px;
+  font-size: 0.94rem;
+  font-weight: 800;
+  white-space: nowrap;
 }
 
-.nav-link:hover,
-.nav-link.router-link-active {
-  color: var(--color-text-primary);
+.nav a:hover,
+.nav a.router-link-active,
+.header-actions a:hover,
+.menu-toggle:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.08);
 }
 
-.nav-link.router-link-active::after {
-  width: 100%;
+.nav a.router-link-active {
+  border: 1px solid rgba(34, 211, 238, 0.28);
+  background: rgba(8, 47, 73, 0.55);
 }
 
 .header-actions {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
+  flex: 0 0 auto;
+  gap: 6px;
 }
 
-.github-link {
-  display: flex;
-  align-items: center;
+.header-actions a,
+.menu-toggle {
   justify-content: center;
-  width: 40px;
-  height: 40px;
-  color: var(--color-text-secondary);
-  border-radius: var(--radius-md);
-  transition: all var(--transition-fast);
-}
-
-.github-link:hover {
-  color: var(--color-text-primary);
-  background: rgba(255, 255, 255, 0.05);
+  width: 42px;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
 }
 
 .menu-toggle {
   display: none;
-  flex-direction: column;
-  gap: 5px;
-  padding: 10px;
-  background: none;
-  border: none;
-  cursor: pointer;
 }
 
-.menu-toggle span {
-  display: block;
-  width: 24px;
-  height: 2px;
-  background: var(--color-text-primary);
-  transition: all var(--transition-fast);
-}
-
-@media (max-width: 768px) {
-  .nav {
-    position: fixed;
-    top: 70px;
-    left: 0;
-    right: 0;
-    flex-direction: column;
-    align-items: center;
-    padding: 2rem;
-    background: var(--color-bg-primary);
-    border-bottom: 1px solid var(--color-border);
-    transform: translateY(-100%);
-    opacity: 0;
-    visibility: hidden;
-    transition: all var(--transition-normal);
-  }
-
-  .nav-open {
-    transform: translateY(0);
-    opacity: 1;
-    visibility: visible;
+@media (max-width: 960px) {
+  .header {
+    height: 64px;
   }
 
   .menu-toggle {
     display: flex;
+  }
+
+  .nav {
+    position: absolute;
+    top: 74px;
+    left: 0;
+    right: 0;
+    display: none;
+    flex-direction: column;
+    align-items: stretch;
+    padding: 10px;
+    border: 1px solid rgba(148, 163, 184, 0.24);
+    border-radius: 8px;
+    background: rgba(2, 6, 23, 0.96);
+    box-shadow: 0 18px 54px rgba(0, 0, 0, 0.32);
+  }
+
+  .nav.open {
+    display: flex;
+  }
+
+  .nav a {
+    min-height: 44px;
+  }
+}
+
+@media (max-width: 520px) {
+  .logo span {
+    max-width: 148px;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 }
 </style>

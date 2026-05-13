@@ -1,0 +1,10 @@
+.git
+.github
+node_modules
+dist
+data
+npm-debug.log
+*.log
+test_output_*
+test_parse_result.json
+final-test-report.md
