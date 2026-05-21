@@ -26,6 +26,7 @@
             <option value="developer">开发工具分流</option>
             <option value="gaming">游戏低延迟分流</option>
             <option value="streaming">流媒体服务分流</option>
+            <option value="blackmatrix7">BlackMatrix7 实时规则集</option>
           </select>
         </label>
 
