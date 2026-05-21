@@ -37,11 +37,11 @@ export const rulePresets = {
         groups: [
             { name: GROUPS.select, type: 'select', proxies: [GROUPS.auto, GROUPS.direct] },
             { name: GROUPS.auto, type: 'url-test', proxies: [], url: 'http://www.gstatic.com/generate_204', interval: 300 },
-            { name: GROUPS.telegram, type: 'select', proxies: [GROUPS.select, GROUPS.auto] },
-            { name: GROUPS.media, type: 'select', proxies: [GROUPS.select, GROUPS.auto] },
-            { name: GROUPS.ai, type: 'select', proxies: [GROUPS.select, GROUPS.auto] },
-            { name: GROUPS.traffic01x, type: 'select', proxies: [GROUPS.select, GROUPS.auto], filter: '0.1x' },
-            { name: GROUPS.traffic001x, type: 'select', proxies: [GROUPS.select, GROUPS.auto], filter: '0.01x' },
+            { name: GROUPS.telegram, type: 'select', proxies: [GROUPS.select, GROUPS.auto, GROUPS.traffic01x, GROUPS.traffic001x] },
+            { name: GROUPS.media, type: 'select', proxies: [GROUPS.select, GROUPS.auto, GROUPS.traffic01x, GROUPS.traffic001x] },
+            { name: GROUPS.ai, type: 'select', proxies: [GROUPS.select, GROUPS.auto, GROUPS.traffic01x, GROUPS.traffic001x] },
+            { name: GROUPS.traffic01x, type: 'select', proxies: [], filter: '0.1' },
+            { name: GROUPS.traffic001x, type: 'select', proxies: [], filter: '0.01' },
             { name: GROUPS.direct, type: 'select', proxies: ['DIRECT'] },
             { name: GROUPS.reject, type: 'select', proxies: ['REJECT'] },
             { name: GROUPS.final, type: 'select', proxies: [GROUPS.select, GROUPS.direct] }
@@ -148,10 +148,10 @@ export const rulePresets = {
         groups: [
             { name: GROUPS.select, type: 'select', proxies: [GROUPS.auto, GROUPS.direct] },
             { name: GROUPS.auto, type: 'url-test', proxies: [], url: 'http://www.gstatic.com/generate_204', interval: 300 },
-            { name: GROUPS.netflix, type: 'select', proxies: [GROUPS.select, GROUPS.auto] },
-            { name: GROUPS.disney, type: 'select', proxies: [GROUPS.select, GROUPS.auto] },
-            { name: GROUPS.youtube, type: 'select', proxies: [GROUPS.select, GROUPS.auto] },
-            { name: GROUPS.spotify, type: 'select', proxies: [GROUPS.select, GROUPS.auto] },
+            { name: GROUPS.netflix, type: 'select', proxies: [GROUPS.select, GROUPS.auto, GROUPS.traffic01x, GROUPS.traffic001x] },
+            { name: GROUPS.disney, type: 'select', proxies: [GROUPS.select, GROUPS.auto, GROUPS.traffic01x, GROUPS.traffic001x] },
+            { name: GROUPS.youtube, type: 'select', proxies: [GROUPS.select, GROUPS.auto, GROUPS.traffic01x, GROUPS.traffic001x] },
+            { name: GROUPS.spotify, type: 'select', proxies: [GROUPS.select, GROUPS.auto, GROUPS.traffic01x, GROUPS.traffic001x] },
             { name: GROUPS.direct, type: 'select', proxies: ['DIRECT'] },
             { name: GROUPS.final, type: 'select', proxies: [GROUPS.select, GROUPS.direct] }
         ],
