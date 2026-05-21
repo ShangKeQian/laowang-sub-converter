@@ -12,7 +12,9 @@ const GROUPS = {
     netflix: 'Netflix',
     disney: 'Disney+',
     youtube: 'YouTube',
-    spotify: 'Spotify'
+    spotify: 'Spotify',
+    traffic01x: '📊 0.1x 流量',
+    traffic001x: '📉 0.01x 流量'
 }
 
 export const rulePresets = {
@@ -38,6 +40,8 @@ export const rulePresets = {
             { name: GROUPS.telegram, type: 'select', proxies: [GROUPS.select, GROUPS.auto] },
             { name: GROUPS.media, type: 'select', proxies: [GROUPS.select, GROUPS.auto] },
             { name: GROUPS.ai, type: 'select', proxies: [GROUPS.select, GROUPS.auto] },
+            { name: GROUPS.traffic01x, type: 'select', proxies: [GROUPS.select, GROUPS.auto], filter: '0.1x' },
+            { name: GROUPS.traffic001x, type: 'select', proxies: [GROUPS.select, GROUPS.auto], filter: '0.01x' },
             { name: GROUPS.direct, type: 'select', proxies: ['DIRECT'] },
             { name: GROUPS.reject, type: 'select', proxies: ['REJECT'] },
             { name: GROUPS.final, type: 'select', proxies: [GROUPS.select, GROUPS.direct] }
@@ -45,6 +49,22 @@ export const rulePresets = {
         rules: [
             `DOMAIN-KEYWORD,adservice,${GROUPS.reject}`,
             `DOMAIN-KEYWORD,tracking,${GROUPS.reject}`,
+            `DOMAIN-SUFFIX,wnacg.com,${GROUPS.reject}`,
+            `DOMAIN-SUFFIX,wallhaven.cn,${GROUPS.reject}`,
+            `DOMAIN-SUFFIX,playzip.com,${GROUPS.reject}`,
+            `DOMAIN-SUFFIX,xbookcn.net,${GROUPS.reject}`,
+            `DOMAIN-SUFFIX,hanime1.me,${GROUPS.reject}`,
+            `DOMAIN-SUFFIX,91porn.com,${GROUPS.reject}`,
+            `DOMAIN-SUFFIX,uaa.com,${GROUPS.reject}`,
+            `DOMAIN-SUFFIX,javlibrary.com,${GROUPS.reject}`,
+            `DOMAIN-SUFFIX,njav.tv,${GROUPS.reject}`,
+            `DOMAIN-KEYWORD,18comic,${GROUPS.reject}`,
+            `DOMAIN-KEYWORD,porn,${GROUPS.reject}`,
+            `DOMAIN-KEYWORD,91porn,${GROUPS.reject}`,
+            `DOMAIN-KEYWORD,jable,${GROUPS.reject}`,
+            `DOMAIN-KEYWORD,missav,${GROUPS.reject}`,
+            `DOMAIN-KEYWORD,alicesw,${GROUPS.reject}`,
+            `DOMAIN-KEYWORD,kemono,${GROUPS.reject}`,
             `DOMAIN-SUFFIX,openai.com,${GROUPS.ai}`,
             `DOMAIN-SUFFIX,chatgpt.com,${GROUPS.ai}`,
             `DOMAIN-SUFFIX,anthropic.com,${GROUPS.ai}`,
@@ -169,9 +189,15 @@ export function applyRulePreset(nodeNames, presetId = 'basic') {
     const names = Array.isArray(nodeNames) ? nodeNames : nodeNames.map(node => node.name)
     const preset = getRulePreset(presetId)
     const groups = preset.groups.map(group => {
-        const proxies = group.type === 'url-test'
-            ? [...names]
-            : [...group.proxies, ...((group.name === GROUPS.select) ? names : [])]
+        let proxies
+        if (group.type === 'url-test') {
+            proxies = [...names]
+        } else if (group.filter) {
+            const filtered = names.filter(n => n.toLowerCase().includes(group.filter))
+            proxies = [...group.proxies, ...filtered]
+        } else {
+            proxies = [...group.proxies, ...((group.name === GROUPS.select) ? names : [])]
+        }
 
         return {
             ...group,
