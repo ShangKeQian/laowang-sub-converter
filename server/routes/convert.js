@@ -121,7 +121,7 @@ router.get('/', async (req, res) => {
         }
 
         // 转换为目标格式
-        const output = convertToTarget(nodes, target, {
+        const output = await convertToTarget(nodes, target, {
             udp: udp === '1',
             skipCert: scert === '1',
             rulePreset

@@ -14,7 +14,19 @@ const GROUPS = {
     youtube: 'YouTube',
     spotify: 'Spotify',
     traffic01x: '📊 0.1x 流量',
-    traffic001x: '📉 0.01x 流量'
+    traffic001x: '📉 0.01x 流量',
+    hk: '🇭🇰 香港节点',
+    tw: '🇨🇳 台湾节点',
+    sg: '🇸🇬 狮城节点',
+    jp: '🇯🇵 日本节点',
+    us: '🇺🇸 美国节点',
+    kr: '🇰🇷 韩国节点',
+    bahamut: '📺 巴哈姆特',
+    bilibili: '📺 哔哩哔哩',
+    netease: '🎶 网易音乐',
+    googlefcm: '📢 谷歌FCM',
+    msbing: 'Ⓜ️ 微软Bing',
+    msonedrive: 'Ⓜ️ 微软云盘'
 }
 
 export const rulePresets = {
@@ -279,6 +291,86 @@ export const rulePresets = {
             `GEOIP,CN,${GROUPS.direct}`,
             `MATCH,${GROUPS.final}`
         ]
+    },
+    acl4ssr_full: {
+        name: 'ACL4SSR Full',
+        description: 'ACL4SSR 完整版规则集，含地区分组（香港/台湾/狮城/日本/美国/韩国）、微软/苹果/谷歌/AI/游戏/巴哈姆特/哔哩哔哩/网易音乐等精细分流。需 Clash Meta/Mihomo 内核。',
+        groups: [
+            { name: GROUPS.select, type: 'select', proxies: [GROUPS.auto, GROUPS.hk, GROUPS.tw, GROUPS.sg, GROUPS.jp, GROUPS.us, GROUPS.kr, GROUPS.direct] },
+            { name: GROUPS.auto, type: 'url-test', proxies: [], url: 'http://www.gstatic.com/generate_204', interval: 300 },
+            { name: GROUPS.telegram, type: 'select', proxies: [GROUPS.select, GROUPS.auto, GROUPS.sg, GROUPS.hk, GROUPS.tw, GROUPS.jp, GROUPS.us, GROUPS.kr, GROUPS.traffic01x, GROUPS.traffic001x] },
+            { name: GROUPS.media, type: 'select', proxies: [GROUPS.select, GROUPS.auto, GROUPS.sg, GROUPS.hk, GROUPS.tw, GROUPS.jp, GROUPS.us, GROUPS.kr, GROUPS.traffic01x, GROUPS.traffic001x] },
+            { name: GROUPS.ai, type: 'select', proxies: [GROUPS.select, GROUPS.auto, GROUPS.sg, GROUPS.hk, GROUPS.tw, GROUPS.jp, GROUPS.us, GROUPS.kr, GROUPS.traffic01x, GROUPS.traffic001x] },
+            { name: GROUPS.hk, type: 'url-test', proxies: [], filter: ['港', 'HK', 'hk', 'Hong Kong', 'HongKong', 'hongkong'] },
+            { name: GROUPS.tw, type: 'url-test', proxies: [], filter: ['台', 'TW', 'tw', 'Taiwan'] },
+            { name: GROUPS.sg, type: 'url-test', proxies: [], filter: ['新加坡', '坡', '狮城', 'SG', 'sg', 'Singapore'] },
+            { name: GROUPS.jp, type: 'url-test', proxies: [], filter: ['日本', '川日', '东京', '大阪', '泉日', '埼玉', '沪日', '深日', 'JP', 'jp', 'Japan'] },
+            { name: GROUPS.us, type: 'url-test', proxies: [], filter: ['美', '波特兰', '达拉斯', '俄勒冈', '凤凰城', '费利蒙', '硅谷', '拉斯维加斯', '洛杉矶', '圣何塞', '圣克拉拉', '西雅图', '芝加哥', 'US', 'us', 'United States'] },
+            { name: GROUPS.kr, type: 'url-test', proxies: [], filter: ['KR', 'kr', 'Korea', 'KOR', '首尔', '韩', '韓'] },
+            { name: GROUPS.bahamut, type: 'select', proxies: [GROUPS.tw, GROUPS.select, GROUPS.direct] },
+            { name: GROUPS.bilibili, type: 'select', proxies: [GROUPS.direct, GROUPS.tw, GROUPS.hk] },
+            { name: GROUPS.netease, type: 'select', proxies: [GROUPS.direct, GROUPS.select, GROUPS.auto] },
+            { name: GROUPS.googlefcm, type: 'select', proxies: [GROUPS.direct, GROUPS.select, GROUPS.us, GROUPS.hk, GROUPS.tw, GROUPS.sg, GROUPS.jp, GROUPS.kr] },
+            { name: GROUPS.msbing, type: 'select', proxies: [GROUPS.direct, GROUPS.select, GROUPS.us, GROUPS.hk, GROUPS.tw, GROUPS.sg, GROUPS.jp, GROUPS.kr] },
+            { name: GROUPS.msonedrive, type: 'select', proxies: [GROUPS.direct, GROUPS.select, GROUPS.us, GROUPS.hk, GROUPS.tw, GROUPS.sg, GROUPS.jp, GROUPS.kr] },
+            { name: GROUPS.traffic01x, type: 'select', proxies: [], filter: '0.1' },
+            { name: GROUPS.traffic001x, type: 'select', proxies: [], filter: '0.01' },
+            { name: GROUPS.direct, type: 'select', proxies: ['DIRECT'] },
+            { name: GROUPS.reject, type: 'select', proxies: ['REJECT'] },
+            { name: GROUPS.netflix, type: 'select', proxies: [GROUPS.select, GROUPS.auto, GROUPS.sg, GROUPS.hk, GROUPS.tw, GROUPS.jp, GROUPS.us, GROUPS.kr] },
+            { name: GROUPS.final, type: 'select', proxies: [GROUPS.select, GROUPS.auto, GROUPS.direct] }
+        ],
+        rules: [
+            `RULE-SET,https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/LocalAreaNetwork.list,${GROUPS.direct}`,
+            `RULE-SET,https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/UnBan.list,${GROUPS.direct}`,
+            `RULE-SET,https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/BanAD.list,${GROUPS.reject}`,
+            `RULE-SET,https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/BanProgramAD.list,${GROUPS.reject}`,
+            `RULE-SET,https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/Ruleset/GoogleFCM.list,${GROUPS.googlefcm}`,
+            `RULE-SET,https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/GoogleCN.list,${GROUPS.direct}`,
+            `RULE-SET,https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/Ruleset/SteamCN.list,${GROUPS.direct}`,
+            `RULE-SET,https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/Bing.list,${GROUPS.msbing}`,
+            `RULE-SET,https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/OneDrive.list,${GROUPS.msonedrive}`,
+            `RULE-SET,https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/Microsoft.list,${GROUPS.direct}`,
+            `RULE-SET,https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/Apple.list,${GROUPS.direct}`,
+            `RULE-SET,https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/Telegram.list,${GROUPS.telegram}`,
+            `RULE-SET,https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/Ruleset/AI.list,${GROUPS.ai}`,
+            `RULE-SET,https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/Ruleset/OpenAi.list,${GROUPS.ai}`,
+            `RULE-SET,https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/Ruleset/NetEaseMusic.list,${GROUPS.netease}`,
+            `RULE-SET,https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/Ruleset/Epic.list,${GROUPS.media}`,
+            `RULE-SET,https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/Ruleset/Origin.list,${GROUPS.media}`,
+            `RULE-SET,https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/Ruleset/Sony.list,${GROUPS.media}`,
+            `RULE-SET,https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/Ruleset/Steam.list,${GROUPS.media}`,
+            `RULE-SET,https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/Ruleset/Nintendo.list,${GROUPS.media}`,
+            `RULE-SET,https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/Ruleset/YouTube.list,${GROUPS.media}`,
+            `RULE-SET,https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/Ruleset/Netflix.list,${GROUPS.netflix}`,
+            `RULE-SET,https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/Ruleset/Bahamut.list,${GROUPS.bahamut}`,
+            `RULE-SET,https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/Ruleset/BilibiliHMT.list,${GROUPS.bilibili}`,
+            `RULE-SET,https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/Ruleset/Bilibili.list,${GROUPS.bilibili}`,
+            `RULE-SET,https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/ChinaMedia.list,${GROUPS.direct}`,
+            `RULE-SET,https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/ProxyMedia.list,${GROUPS.media}`,
+            `RULE-SET,https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/ProxyGFWlist.list,${GROUPS.select}`,
+            `RULE-SET,https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/ChinaDomain.list,${GROUPS.direct}`,
+            `RULE-SET,https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/ChinaCompanyIp.list,${GROUPS.direct}`,
+            `RULE-SET,https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/Download.list,${GROUPS.direct}`,
+            `DOMAIN-SUFFIX,wnacg.com,${GROUPS.reject}`,
+            `DOMAIN-SUFFIX,wallhaven.cc,${GROUPS.reject}`,
+            `DOMAIN-SUFFIX,playzip.com,${GROUPS.reject}`,
+            `DOMAIN-SUFFIX,xbookcn.net,${GROUPS.reject}`,
+            `DOMAIN-SUFFIX,hanime1.me,${GROUPS.reject}`,
+            `DOMAIN-SUFFIX,91porn.com,${GROUPS.reject}`,
+            `DOMAIN-SUFFIX,uaa.com,${GROUPS.reject}`,
+            `DOMAIN-SUFFIX,javlibrary.com,${GROUPS.reject}`,
+            `DOMAIN-SUFFIX,njav.tv,${GROUPS.reject}`,
+            `DOMAIN-KEYWORD,18comic,${GROUPS.reject}`,
+            `DOMAIN-KEYWORD,porn,${GROUPS.reject}`,
+            `DOMAIN-KEYWORD,91porn,${GROUPS.reject}`,
+            `DOMAIN-KEYWORD,jable,${GROUPS.reject}`,
+            `DOMAIN-KEYWORD,missav,${GROUPS.reject}`,
+            `DOMAIN-KEYWORD,alicesw,${GROUPS.reject}`,
+            `DOMAIN-KEYWORD,kemono,${GROUPS.reject}`,
+            `GEOIP,CN,${GROUPS.direct}`,
+            `MATCH,${GROUPS.final}`
+        ]
     }
 }
 
@@ -304,7 +396,11 @@ export function applyRulePreset(nodeNames, presetId = 'basic') {
         if (group.type === 'url-test') {
             proxies = [...names]
         } else if (group.filter) {
-            const filtered = names.filter(n => n.toLowerCase().includes(group.filter))
+            const keywords = Array.isArray(group.filter) ? group.filter : [group.filter]
+            const filtered = names.filter(n => {
+                const lower = n.toLowerCase()
+                return keywords.some(kw => lower.includes(kw.toLowerCase()))
+            })
             proxies = [...group.proxies, ...filtered]
         } else {
             proxies = [...group.proxies, ...((group.name === GROUPS.select) ? names : [])]
@@ -320,4 +416,55 @@ export function applyRulePreset(nodeNames, presetId = 'basic') {
         proxyGroups: groups,
         rules: preset.rules
     }
+}
+
+const RULESET_CACHE = new Map()
+
+async function fetchRuleset(url, timeout = 8000) {
+    if (RULESET_CACHE.has(url)) return RULESET_CACHE.get(url)
+    try {
+        const controller = new AbortController()
+        const timer = setTimeout(() => controller.abort(), timeout)
+        const res = await fetch(url, {
+            signal: controller.signal,
+            headers: { 'User-Agent': 'LaoWang-Sub-Converter/1.0' }
+        })
+        clearTimeout(timer)
+        if (!res.ok) return []
+        const text = await res.text()
+        const lines = text.split('\n')
+            .map(l => l.trim())
+            .filter(l => l && !l.startsWith('#') && !l.startsWith(';'))
+            .map(l => l.split(','))
+            .filter(parts => parts.length >= 2)
+            .map(parts => {
+                const type = parts[0].toUpperCase()
+                const value = parts[1]
+                const extra = parts.slice(2).join(',')
+                return { type, value, extra }
+            })
+        RULESET_CACHE.set(url, lines)
+        return lines
+    } catch {
+        return []
+    }
+}
+
+export async function expandRules(rules) {
+    const expanded = []
+    for (const rule of rules) {
+        const parts = rule.split(',')
+        if (parts[0] === 'RULE-SET' && parts[1]?.startsWith('http')) {
+            const url = parts[1]
+            const group = parts.slice(2).join(',')
+            const entries = await fetchRuleset(url)
+            for (const entry of entries) {
+                const suffix = entry.extra ? `,${entry.extra}` : ''
+                expanded.push(`${entry.type},${entry.value},${group}${suffix}`)
+            }
+        } else {
+            expanded.push(rule)
+        }
+    }
+    return expanded
 }
