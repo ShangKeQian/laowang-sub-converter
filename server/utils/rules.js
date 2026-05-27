@@ -1,3 +1,22 @@
+const ADULT_BLOCK_RULES = [
+    `DOMAIN-SUFFIX,wnacg.com`,
+    `DOMAIN-SUFFIX,wallhaven.cc`,
+    `DOMAIN-SUFFIX,playzip.com`,
+    `DOMAIN-SUFFIX,xbookcn.net`,
+    `DOMAIN-SUFFIX,hanime1.me`,
+    `DOMAIN-SUFFIX,91porn.com`,
+    `DOMAIN-SUFFIX,uaa.com`,
+    `DOMAIN-SUFFIX,javlibrary.com`,
+    `DOMAIN-SUFFIX,njav.tv`,
+    `DOMAIN-KEYWORD,18comic`,
+    `DOMAIN-KEYWORD,porn`,
+    `DOMAIN-KEYWORD,91porn`,
+    `DOMAIN-KEYWORD,jable`,
+    `DOMAIN-KEYWORD,missav`,
+    `DOMAIN-KEYWORD,alicesw`,
+    `DOMAIN-KEYWORD,kemono`
+]
+
 const GROUPS = {
     select: '🚀 节点选择',
     auto: '♻️ 自动选择',
@@ -61,22 +80,7 @@ export const rulePresets = {
         rules: [
             `DOMAIN-KEYWORD,adservice,${GROUPS.reject}`,
             `DOMAIN-KEYWORD,tracking,${GROUPS.reject}`,
-            `DOMAIN-SUFFIX,wnacg.com,${GROUPS.reject}`,
-            `DOMAIN-SUFFIX,wallhaven.cc,${GROUPS.reject}`,
-            `DOMAIN-SUFFIX,playzip.com,${GROUPS.reject}`,
-            `DOMAIN-SUFFIX,xbookcn.net,${GROUPS.reject}`,
-            `DOMAIN-SUFFIX,hanime1.me,${GROUPS.reject}`,
-            `DOMAIN-SUFFIX,91porn.com,${GROUPS.reject}`,
-            `DOMAIN-SUFFIX,uaa.com,${GROUPS.reject}`,
-            `DOMAIN-SUFFIX,javlibrary.com,${GROUPS.reject}`,
-            `DOMAIN-SUFFIX,njav.tv,${GROUPS.reject}`,
-            `DOMAIN-KEYWORD,18comic,${GROUPS.reject}`,
-            `DOMAIN-KEYWORD,porn,${GROUPS.reject}`,
-            `DOMAIN-KEYWORD,91porn,${GROUPS.reject}`,
-            `DOMAIN-KEYWORD,jable,${GROUPS.reject}`,
-            `DOMAIN-KEYWORD,missav,${GROUPS.reject}`,
-            `DOMAIN-KEYWORD,alicesw,${GROUPS.reject}`,
-            `DOMAIN-KEYWORD,kemono,${GROUPS.reject}`,
+            ...ADULT_BLOCK_RULES.map(r => `${r},${GROUPS.reject}`),
             `DOMAIN-SUFFIX,openai.com,${GROUPS.ai}`,
             `DOMAIN-SUFFIX,chatgpt.com,${GROUPS.ai}`,
             `DOMAIN-SUFFIX,anthropic.com,${GROUPS.ai}`,
@@ -223,22 +227,7 @@ export const rulePresets = {
             `RULE-SET,https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Clash/Nintendo/Nintendo.list,${GROUPS.game}`,
             `RULE-SET,https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Clash/Blizzard/Blizzard.list,${GROUPS.game}`,
             `RULE-SET,https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Clash/Discord/Discord.list,${GROUPS.game}`,
-            `DOMAIN-SUFFIX,wnacg.com,${GROUPS.reject}`,
-            `DOMAIN-SUFFIX,wallhaven.cc,${GROUPS.reject}`,
-            `DOMAIN-SUFFIX,playzip.com,${GROUPS.reject}`,
-            `DOMAIN-SUFFIX,xbookcn.net,${GROUPS.reject}`,
-            `DOMAIN-SUFFIX,hanime1.me,${GROUPS.reject}`,
-            `DOMAIN-SUFFIX,91porn.com,${GROUPS.reject}`,
-            `DOMAIN-SUFFIX,uaa.com,${GROUPS.reject}`,
-            `DOMAIN-SUFFIX,javlibrary.com,${GROUPS.reject}`,
-            `DOMAIN-SUFFIX,njav.tv,${GROUPS.reject}`,
-            `DOMAIN-KEYWORD,18comic,${GROUPS.reject}`,
-            `DOMAIN-KEYWORD,porn,${GROUPS.reject}`,
-            `DOMAIN-KEYWORD,91porn,${GROUPS.reject}`,
-            `DOMAIN-KEYWORD,jable,${GROUPS.reject}`,
-            `DOMAIN-KEYWORD,missav,${GROUPS.reject}`,
-            `DOMAIN-KEYWORD,alicesw,${GROUPS.reject}`,
-            `DOMAIN-KEYWORD,kemono,${GROUPS.reject}`,
+            ...ADULT_BLOCK_RULES.map(r => `${r},${GROUPS.reject}`),
             `GEOIP,LAN,${GROUPS.direct}`,
             `GEOIP,CN,${GROUPS.direct}`,
             `MATCH,${GROUPS.final}`
@@ -271,22 +260,7 @@ export const rulePresets = {
             `RULE-SET,https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/ProxyLite.list,${GROUPS.select}`,
             `RULE-SET,https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/ChinaDomain.list,${GROUPS.direct}`,
             `RULE-SET,https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/ChinaCompanyIp.list,${GROUPS.direct}`,
-            `DOMAIN-SUFFIX,wnacg.com,${GROUPS.reject}`,
-            `DOMAIN-SUFFIX,wallhaven.cc,${GROUPS.reject}`,
-            `DOMAIN-SUFFIX,playzip.com,${GROUPS.reject}`,
-            `DOMAIN-SUFFIX,xbookcn.net,${GROUPS.reject}`,
-            `DOMAIN-SUFFIX,hanime1.me,${GROUPS.reject}`,
-            `DOMAIN-SUFFIX,91porn.com,${GROUPS.reject}`,
-            `DOMAIN-SUFFIX,uaa.com,${GROUPS.reject}`,
-            `DOMAIN-SUFFIX,javlibrary.com,${GROUPS.reject}`,
-            `DOMAIN-SUFFIX,njav.tv,${GROUPS.reject}`,
-            `DOMAIN-KEYWORD,18comic,${GROUPS.reject}`,
-            `DOMAIN-KEYWORD,porn,${GROUPS.reject}`,
-            `DOMAIN-KEYWORD,91porn,${GROUPS.reject}`,
-            `DOMAIN-KEYWORD,jable,${GROUPS.reject}`,
-            `DOMAIN-KEYWORD,missav,${GROUPS.reject}`,
-            `DOMAIN-KEYWORD,alicesw,${GROUPS.reject}`,
-            `DOMAIN-KEYWORD,kemono,${GROUPS.reject}`,
+            ...ADULT_BLOCK_RULES.map(r => `${r},${GROUPS.reject}`),
             `GEOIP,LAN,${GROUPS.direct}`,
             `GEOIP,CN,${GROUPS.direct}`,
             `MATCH,${GROUPS.final}`
@@ -352,22 +326,8 @@ export const rulePresets = {
             `RULE-SET,https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/ChinaDomain.list,${GROUPS.direct}`,
             `RULE-SET,https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/ChinaCompanyIp.list,${GROUPS.direct}`,
             `RULE-SET,https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/Download.list,${GROUPS.direct}`,
-            `DOMAIN-SUFFIX,wnacg.com,${GROUPS.reject}`,
-            `DOMAIN-SUFFIX,wallhaven.cc,${GROUPS.reject}`,
-            `DOMAIN-SUFFIX,playzip.com,${GROUPS.reject}`,
-            `DOMAIN-SUFFIX,xbookcn.net,${GROUPS.reject}`,
-            `DOMAIN-SUFFIX,hanime1.me,${GROUPS.reject}`,
-            `DOMAIN-SUFFIX,91porn.com,${GROUPS.reject}`,
-            `DOMAIN-SUFFIX,uaa.com,${GROUPS.reject}`,
-            `DOMAIN-SUFFIX,javlibrary.com,${GROUPS.reject}`,
-            `DOMAIN-SUFFIX,njav.tv,${GROUPS.reject}`,
-            `DOMAIN-KEYWORD,18comic,${GROUPS.reject}`,
-            `DOMAIN-KEYWORD,porn,${GROUPS.reject}`,
-            `DOMAIN-KEYWORD,91porn,${GROUPS.reject}`,
-            `DOMAIN-KEYWORD,jable,${GROUPS.reject}`,
-            `DOMAIN-KEYWORD,missav,${GROUPS.reject}`,
-            `DOMAIN-KEYWORD,alicesw,${GROUPS.reject}`,
-            `DOMAIN-KEYWORD,kemono,${GROUPS.reject}`,
+            ...ADULT_BLOCK_RULES.map(r => `${r},${GROUPS.reject}`),
+            `GEOIP,LAN,${GROUPS.direct}`,
             `GEOIP,CN,${GROUPS.direct}`,
             `MATCH,${GROUPS.final}`
         ]
@@ -420,44 +380,66 @@ export function applyRulePreset(nodeNames, presetId = 'basic') {
 
 const RULESET_CACHE = new Map()
 
+const pendingFetches = new Map()
+
 async function fetchRuleset(url, timeout = 8000) {
     if (RULESET_CACHE.has(url)) return RULESET_CACHE.get(url)
-    try {
+    if (pendingFetches.has(url)) return pendingFetches.get(url)
+
+    const promise = (async () => {
         const controller = new AbortController()
         const timer = setTimeout(() => controller.abort(), timeout)
-        const res = await fetch(url, {
-            signal: controller.signal,
-            headers: { 'User-Agent': 'LaoWang-Sub-Converter/1.0' }
-        })
-        clearTimeout(timer)
-        if (!res.ok) return []
-        const text = await res.text()
-        const lines = text.split('\n')
-            .map(l => l.trim())
-            .filter(l => l && !l.startsWith('#') && !l.startsWith(';'))
-            .map(l => l.split(','))
-            .filter(parts => parts.length >= 2)
-            .map(parts => {
-                const type = parts[0].toUpperCase()
-                const value = parts[1]
-                const extra = parts.slice(2).join(',')
-                return { type, value, extra }
+        try {
+            const res = await fetch(url, {
+                signal: controller.signal,
+                headers: { 'User-Agent': 'LaoWang-Sub-Converter/1.0' }
             })
-        RULESET_CACHE.set(url, lines)
-        return lines
-    } catch {
-        return []
-    }
+            if (!res.ok) return []
+            const text = await res.text()
+            const lines = text.split('\n')
+                .map(l => l.trim())
+                .filter(l => l && !l.startsWith('#') && !l.startsWith(';'))
+                .map(l => l.split(','))
+                .filter(parts => parts.length >= 2)
+                .map(parts => {
+                    const type = parts[0].toUpperCase()
+                    const value = parts[1]
+                    const extra = parts.slice(2).join(',')
+                    return { type, value, extra }
+                })
+            RULESET_CACHE.set(url, lines)
+            return lines
+        } catch {
+            return []
+        } finally {
+            clearTimeout(timer)
+        }
+    })()
+
+    pendingFetches.set(url, promise)
+    const result = await promise
+    pendingFetches.delete(url)
+    return result
 }
 
 export async function expandRules(rules) {
+    const urls = new Set()
+    for (const rule of rules) {
+        if (rule.startsWith('RULE-SET,')) {
+            const url = rule.split(',')[1]
+            if (url?.startsWith('http')) urls.add(url)
+        }
+    }
+
+    await Promise.all([...urls].map(url => fetchRuleset(url)))
+
     const expanded = []
     for (const rule of rules) {
         const parts = rule.split(',')
         if (parts[0] === 'RULE-SET' && parts[1]?.startsWith('http')) {
             const url = parts[1]
             const group = parts.slice(2).join(',')
-            const entries = await fetchRuleset(url)
+            const entries = RULESET_CACHE.get(url) || []
             for (const entry of entries) {
                 const suffix = entry.extra ? `,${entry.extra}` : ''
                 expanded.push(`${entry.type},${entry.value},${group}${suffix}`)
