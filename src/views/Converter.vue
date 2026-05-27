@@ -79,7 +79,7 @@
 </template>
 
 <script setup>
-import { computed, reactive, ref } from 'vue'
+import { computed, ref } from 'vue'
 import { Loader2, Network, RefreshCw, RotateCcw, Server } from 'lucide-vue-next'
 import ClientSelector from '../components/ClientSelector.vue'
 import AdvancedOptions from '../components/AdvancedOptions.vue'
@@ -99,7 +99,7 @@ const apiSources = [
   { id: 'dler', name: 'dler.io', desc: '第三方转换 API', url: 'https://api.dler.io' }
 ]
 
-const advancedOptions = reactive({
+const advancedOptions = ref({
   emoji: true,
   udp: true,
   skipCert: false,
@@ -124,16 +124,16 @@ const convertSubscription = async () => {
     const params = new URLSearchParams({
       target: selectedClient.value,
       url: subscriptionUrl.value.trim(),
-      emoji: advancedOptions.emoji ? '1' : '0',
-      udp: advancedOptions.udp ? '1' : '0',
-      scert: advancedOptions.skipCert ? '1' : '0',
-      sort: advancedOptions.sort ? '1' : '0'
+      emoji: advancedOptions.value.emoji ? '1' : '0',
+      udp: advancedOptions.value.udp ? '1' : '0',
+      scert: advancedOptions.value.skipCert ? '1' : '0',
+      sort: advancedOptions.value.sort ? '1' : '0'
     })
 
-    if (advancedOptions.filter) params.append('include', advancedOptions.filter)
-    if (advancedOptions.exclude) params.append('exclude', advancedOptions.exclude)
-    if (advancedOptions.rename) params.append('rename', advancedOptions.rename)
-    if (advancedOptions.rulePreset) params.append('rulePreset', advancedOptions.rulePreset)
+    if (advancedOptions.value.filter) params.append('include', advancedOptions.value.filter)
+    if (advancedOptions.value.exclude) params.append('exclude', advancedOptions.value.exclude)
+    if (advancedOptions.value.rename) params.append('rename', advancedOptions.value.rename)
+    if (advancedOptions.value.rulePreset) params.append('rulePreset', advancedOptions.value.rulePreset)
 
     convertedUrl.value = selectedApi.value === 'local'
       ? `${apiBaseUrl}/api/convert?${params.toString()}`
@@ -151,7 +151,7 @@ const resetForm = () => {
   selectedApi.value = 'local'
   convertedUrl.value = ''
   error.value = ''
-  Object.assign(advancedOptions, {
+  Object.assign(advancedOptions.value, {
     emoji: true,
     udp: true,
     skipCert: false,
