@@ -27,6 +27,7 @@
             <option value="gaming">游戏低延迟分流</option>
             <option value="streaming">流媒体服务分流</option>
             <option value="blackmatrix7">BlackMatrix7 实时规则集</option>
+            <option value="acl4ssr">ACL4SSR 实时规则集</option>
           </select>
         </label>
 

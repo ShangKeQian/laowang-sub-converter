@@ -231,6 +231,54 @@ export const rulePresets = {
             `GEOIP,CN,${GROUPS.direct}`,
             `MATCH,${GROUPS.final}`
         ]
+    },
+    acl4ssr: {
+        name: 'ACL4SSR',
+        description: '使用 ACL4SSR 的实时规则集，覆盖广告拦截、流媒体、电报、微软、苹果、谷歌等精细分流。需 Clash Meta/Mihomo 内核。',
+        groups: [
+            { name: GROUPS.select, type: 'select', proxies: [GROUPS.auto, GROUPS.direct] },
+            { name: GROUPS.auto, type: 'url-test', proxies: [], url: 'http://www.gstatic.com/generate_204', interval: 300 },
+            { name: GROUPS.telegram, type: 'select', proxies: [GROUPS.select, GROUPS.auto, GROUPS.traffic01x, GROUPS.traffic001x] },
+            { name: GROUPS.media, type: 'select', proxies: [GROUPS.select, GROUPS.auto, GROUPS.traffic01x, GROUPS.traffic001x] },
+            { name: GROUPS.ai, type: 'select', proxies: [GROUPS.select, GROUPS.auto, GROUPS.traffic01x, GROUPS.traffic001x] },
+            { name: GROUPS.traffic01x, type: 'select', proxies: [], filter: '0.1' },
+            { name: GROUPS.traffic001x, type: 'select', proxies: [], filter: '0.01' },
+            { name: GROUPS.direct, type: 'select', proxies: ['DIRECT'] },
+            { name: GROUPS.reject, type: 'select', proxies: ['REJECT'] },
+            { name: GROUPS.final, type: 'select', proxies: [GROUPS.select, GROUPS.direct] }
+        ],
+        rules: [
+            `RULE-SET,https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/BanAD.list,${GROUPS.reject}`,
+            `RULE-SET,https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/BanProgramAD.list,${GROUPS.reject}`,
+            `RULE-SET,https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/Telegram.list,${GROUPS.telegram}`,
+            `RULE-SET,https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/ProxyMedia.list,${GROUPS.media}`,
+            `RULE-SET,https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/Microsoft.list,${GROUPS.direct}`,
+            `RULE-SET,https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/Apple.list,${GROUPS.direct}`,
+            `RULE-SET,https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/GoogleCN.list,${GROUPS.direct}`,
+            `RULE-SET,https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/SteamCN.list,${GROUPS.direct}`,
+            `RULE-SET,https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/ProxyLite.list,${GROUPS.select}`,
+            `RULE-SET,https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/ChinaDomain.list,${GROUPS.direct}`,
+            `RULE-SET,https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/ChinaCompanyIp.list,${GROUPS.direct}`,
+            `DOMAIN-SUFFIX,wnacg.com,${GROUPS.reject}`,
+            `DOMAIN-SUFFIX,wallhaven.cc,${GROUPS.reject}`,
+            `DOMAIN-SUFFIX,playzip.com,${GROUPS.reject}`,
+            `DOMAIN-SUFFIX,xbookcn.net,${GROUPS.reject}`,
+            `DOMAIN-SUFFIX,hanime1.me,${GROUPS.reject}`,
+            `DOMAIN-SUFFIX,91porn.com,${GROUPS.reject}`,
+            `DOMAIN-SUFFIX,uaa.com,${GROUPS.reject}`,
+            `DOMAIN-SUFFIX,javlibrary.com,${GROUPS.reject}`,
+            `DOMAIN-SUFFIX,njav.tv,${GROUPS.reject}`,
+            `DOMAIN-KEYWORD,18comic,${GROUPS.reject}`,
+            `DOMAIN-KEYWORD,porn,${GROUPS.reject}`,
+            `DOMAIN-KEYWORD,91porn,${GROUPS.reject}`,
+            `DOMAIN-KEYWORD,jable,${GROUPS.reject}`,
+            `DOMAIN-KEYWORD,missav,${GROUPS.reject}`,
+            `DOMAIN-KEYWORD,alicesw,${GROUPS.reject}`,
+            `DOMAIN-KEYWORD,kemono,${GROUPS.reject}`,
+            `GEOIP,LAN,${GROUPS.direct}`,
+            `GEOIP,CN,${GROUPS.direct}`,
+            `MATCH,${GROUPS.final}`
+        ]
     }
 }
 
