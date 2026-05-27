@@ -393,15 +393,15 @@ export function applyRulePreset(nodeNames, presetId = 'basic') {
     const preset = getRulePreset(presetId)
     const groups = preset.groups.map(group => {
         let proxies
-        if (group.type === 'url-test') {
-            proxies = [...names]
-        } else if (group.filter) {
+        if (group.filter) {
             const keywords = Array.isArray(group.filter) ? group.filter : [group.filter]
             const filtered = names.filter(n => {
                 const lower = n.toLowerCase()
                 return keywords.some(kw => lower.includes(kw.toLowerCase()))
             })
             proxies = [...group.proxies, ...filtered]
+        } else if (group.type === 'url-test') {
+            proxies = [...names]
         } else {
             proxies = [...group.proxies, ...((group.name === GROUPS.select) ? names : [])]
         }
