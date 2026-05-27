@@ -422,6 +422,14 @@ async function fetchRuleset(url, timeout = 8000) {
     return result
 }
 
+const SUPPORTED_RULE_TYPES = new Set([
+    'DOMAIN', 'DOMAIN-SUFFIX', 'DOMAIN-KEYWORD',
+    'IP-CIDR', 'IP-CIDR6', 'GEOIP',
+    'DST-PORT', 'SRC-PORT',
+    'PROCESS-NAME', 'PROCESS-PATH',
+    'RULE-SET', 'MATCH'
+])
+
 export async function expandRules(rules) {
     const urls = new Set()
     for (const rule of rules) {
@@ -441,6 +449,7 @@ export async function expandRules(rules) {
             const group = parts.slice(2).join(',')
             const entries = RULESET_CACHE.get(url) || []
             for (const entry of entries) {
+                if (!SUPPORTED_RULE_TYPES.has(entry.type)) continue
                 const suffix = entry.extra ? `,${entry.extra}` : ''
                 expanded.push(`${entry.type},${entry.value},${group}${suffix}`)
             }
